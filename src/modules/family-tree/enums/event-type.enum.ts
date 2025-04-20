@@ -1,0 +1,15 @@
+export enum EventType {
+  BIRTH = "BIRT",
+  DEATH = "DEAT",
+  MARRIAGE = "MARR",
+  DIVORCE = "DIV",
+  BAPTISM = "BAPM",
+  BURIAL = "BURI",
+  CENSUS = "CENS",
+  EDUCATION = "EDUC",
+  IMMIGRATION = "IMMI",
+  OCCUPATION = "OCCU",
+  PROBATE = "PROB",
+  WILL = "WILL",
+  OTHER = "OTHER",
+}

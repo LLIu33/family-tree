@@ -1,0 +1,21 @@
+import { Module } from "@nestjs/common";
+import { FamilyTreeService } from "./services/family-tree.service";
+import { GedcomParserService } from "./services/gedcom-parser.service";
+import { FamilyTreeResolver } from "./resolvers/family-tree.resolver";
+import { MediaController } from "./controllers/media.controller";
+import { MediaService } from "./services/media.service";
+import { StorageService } from "./services/storage.service";
+import { Neo4jModule } from "../../neo4j/neo4j.module";
+
+@Module({
+  imports: [Neo4jModule],
+  controllers: [MediaController],
+  providers: [
+    FamilyTreeService,
+    GedcomParserService,
+    FamilyTreeResolver,
+    MediaService,
+    StorageService,
+  ],
+})
+export class FamilyTreeModule {}

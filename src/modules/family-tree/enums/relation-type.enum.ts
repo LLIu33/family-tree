@@ -1,0 +1,12 @@
+export enum RelationType {
+  PARENT = "PARENT",
+  CHILD = "CHILD",
+  SPOUSE = "SPOUSE",
+  SIBLING = "SIBLING",
+  MARRIED = "MARRIED",
+  DIVORCED = "DIVORCED",
+  PARTNER = "PARTNER",
+  ADOPTED = "ADOPTED",
+  STEP = "STEP",
+  GODPARENT = "GODPARENT",
+}
