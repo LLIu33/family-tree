@@ -27,7 +27,11 @@ export class Neo4jModule {
     };
   }
 
-  static forRootAsync(configProvider): DynamicModule {
+  static forRootAsync(configProvider: {
+    imports?: any[];
+    inject?: any[];
+    useFactory: (...args: any[]) => Neo4jConfig | Promise<Neo4jConfig>;
+  }): DynamicModule {
     return {
       module: Neo4jModule,
       imports: [ConfigModule],

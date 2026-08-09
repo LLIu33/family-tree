@@ -4,6 +4,7 @@ import { FamilyTreeModule } from "./modules/family-tree/family-tree.module";
 import { GraphQLModule } from "@nestjs/graphql";
 import { ApolloDriver, ApolloDriverConfig } from "@nestjs/apollo";
 import { Neo4jModule } from "./neo4j/neo4j.module";
+import { Neo4jConfig } from "./neo4j/interfaces/neo4j-config.interface";
 import {
   appConfig,
   neo4jConfig,
@@ -20,13 +21,30 @@ import {
     Neo4jModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        scheme: config.get("NEO4J_SCHEME"),
-        host: config.get("NEO4J_HOST"),
-        port: config.get("NEO4J_PORT"),
-        username: config.get("NEO4J_USERNAME"),
-        password: config.get("NEO4J_PASSWORD"),
-        database: config.get("NEO4J_DATABASE"),
+      useFactory: (config: ConfigService): Neo4jConfig => ({
+        scheme:
+          config.get<string>("neo4j.scheme") ||
+          config.get<string>("NEO4J_SCHEME") ||
+          "bolt",
+        host:
+          config.get<string>("neo4j.host") ||
+          config.get<string>("NEO4J_HOST") ||
+          "localhost",
+        port: Number(
+          config.get("neo4j.port") || config.get("NEO4J_PORT") || 7687
+        ),
+        username:
+          config.get<string>("neo4j.username") ||
+          config.get<string>("NEO4J_USERNAME") ||
+          "neo4j",
+        password:
+          config.get<string>("neo4j.password") ||
+          config.get<string>("NEO4J_PASSWORD") ||
+          "your_password",
+        database:
+          config.get<string>("neo4j.database") ||
+          config.get<string>("NEO4J_DATABASE") ||
+          "neo4j",
       }),
     }),
     GraphQLModule.forRoot<ApolloDriverConfig>({

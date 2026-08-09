@@ -1,23 +1,28 @@
 # Family Tree API
 
-Genealogy management system with Neo4j backend
+Genealogy management API (NestJS + Neo4j). No frontend in this repo.
 
 ## Features
 
 - CRUD for individuals and families
-- Relationship management
-- GEDCOM file import
-- Media attachments
-- Family tree visualization
+- Relationship management (Family hub: `HUSBAND` / `WIFE` / `CHILD`)
+- Built-in GEDCOM import (no `gedcom-ts` — that package is broken on modern Node)
+- Media attachments (S3)
+- Tree JSON for visualization clients
 
 ## Installation
 
-1. Clone repository
-2. Install dependencies: `npm install`
-3. Configure `.env` file
-4. Start Neo4j: `docker-compose up neo4j`
-5. Run app: `npm run start:dev`
+```bash
+npm install
+cp .env.example .env
+docker-compose up -d neo4j
+npm run start:dev
+```
 
-## API Documentation
+- API: `http://localhost:3000`
+- GraphQL playground: `http://localhost:3000/graphql`
 
-Swagger UI available at `/api-docs` when enabled
+## Notes
+
+- Auth is not implemented
+- `gedcom-ts` / `gedcom-js` were removed from the runtime path; import uses an internal parser

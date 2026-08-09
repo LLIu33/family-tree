@@ -1,33 +1,30 @@
-import { Node, Property, Relationship } from "@neo4j/graphql";
+import { Field, ID, ObjectType } from "@nestjs/graphql";
 import { Individual } from "./individual.entity";
 import { Event } from "./event.entity";
 
-@Node("Media")
+@ObjectType()
 export class Media {
-  @Property({ primary: true })
+  @Field(() => ID)
   id: string;
 
-  @Property()
+  @Field()
   type: "PHOTO" | "DOCUMENT" | "AUDIO" | "VIDEO";
 
-  @Property()
+  @Field()
   url: string;
 
-  @Property()
+  @Field()
   thumbnailUrl: string;
 
-  @Property({ nullable: true })
+  @Field({ nullable: true })
   description?: string;
 
-  @Property()
+  @Field()
   createdAt: string;
 
-  @Property({ nullable: true })
+  @Field({ nullable: true })
   dateTaken?: string;
 
-  @Relationship("ATTACHED_TO", { direction: "IN" })
   individual?: Individual;
-
-  @Relationship("DOCUMENTS", { direction: "IN" })
   event?: Event;
 }

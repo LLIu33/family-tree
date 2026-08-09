@@ -1,8 +1,7 @@
 import { Injectable, BadRequestException } from "@nestjs/common";
-import { GraphQLUpload } from "graphql-upload";
 import { Neo4jService } from "../../../neo4j/neo4j.service";
 import { StorageService } from "./storage.service";
-import { CreateMediaDto } from "../dto/create-media.dto";
+import { CreateMediaDto, MediaType } from "../dto/create-media.dto";
 
 @Injectable()
 export class MediaService {
@@ -11,46 +10,20 @@ export class MediaService {
     private readonly storageService: StorageService
   ) {}
 
-  async uploadMedia(
-    upload: Promise<GraphQLUpload>,
-    createMediaDto: CreateMediaDto
-  ): Promise<any> {
-    // Получаем файл из промиса
-    const { createReadStream, filename, mimetype } = await upload;
-
-    // Создаем временный файл для загрузки
-    const file: Express.Multer.File = {
-      fieldname: "file",
-      originalname: filename,
-      encoding: "7bit",
-      mimetype,
-      stream: createReadStream(),
-      destination: "",
-      filename: filename,
-      path: "",
-      size: 0, // Размер будет определен при сохранении
-      buffer: null as any,
-    };
-
-    // Используем существующий метод createMedia
-    return this.createMedia(file, createMediaDto);
-  }
-
   async createMedia(
     file: Express.Multer.File,
     createMediaDto: CreateMediaDto
-  ): Promise<any> {
-    // Загрузка файла в хранилище
+  ): Promise<Record<string, unknown>> {
+    const mediaType = createMediaDto.type || MediaType.PHOTO;
     const { url, thumbnailUrl } = await this.storageService.uploadFile(
       file,
-      createMediaDto.type
+      mediaType
     );
 
-    // Создание записи в Neo4j
     const mediaId = `media_${Date.now()}`;
     const mediaData = {
       id: mediaId,
-      type: createMediaDto.type,
+      type: mediaType,
       url,
       thumbnailUrl,
       description: createMediaDto.description,
@@ -73,7 +46,7 @@ export class MediaService {
     return mediaData;
   }
 
-  async getMediaForIndividual(individualId: string): Promise<any[]> {
+  async getMediaForIndividual(individualId: string): Promise<unknown[]> {
     const result = await this.neo4jService.read(
       `MATCH (i:Individual {id: $individualId})-[:HAS_MEDIA]->(m:Media)
              RETURN m ORDER BY m.dateTaken DESC`,
@@ -84,10 +57,9 @@ export class MediaService {
   }
 
   async deleteMedia(mediaId: string): Promise<void> {
-    // Получаем информацию о файле перед удалением
     const result = await this.neo4jService.read(
       `MATCH (m:Media {id: $mediaId})
-             RETURN m.url, m.thumbnailUrl`,
+             RETURN m.url AS url, m.thumbnailUrl AS thumbnailUrl`,
       { mediaId }
     );
 
@@ -97,13 +69,11 @@ export class MediaService {
 
     const { url, thumbnailUrl } = result.records[0].toObject();
 
-    // Удаляем файлы из хранилища
     await this.storageService.deleteFile(url);
     if (thumbnailUrl) {
       await this.storageService.deleteFile(thumbnailUrl);
     }
 
-    // Удаляем запись из Neo4j
     await this.neo4jService.write(
       `MATCH (m:Media {id: $mediaId}) DETACH DELETE m`,
       { mediaId }

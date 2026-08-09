@@ -1,81 +1,90 @@
-import { Node } from 'neo4j-driver';
-import { generate } from 'shortid';
-import { Neo4jGraphQL } from '@neo4j/graphql';
-import { Sex } from 'gedcom-ts';
+import { Field, ID, ObjectType } from "@nestjs/graphql";
+import { Node } from "neo4j-driver";
+import { generate } from "shortid";
+import { Sex } from "../enums/sex.enum";
 
-const typeDefs = `
-  enum Sex {
-    MALE
-    FEMALE
-    UNKNOWN
-  }
-
-  type Individual {
-    id: ID! @id
-    gedcomId: String!
-    firstName: String!
-    lastName: String!
-    middleName: String
-    sex: Sex!
-    birthDate: DateTime
-    deathDate: DateTime
-    birthPlace: String
-    deathPlace: String
-    occupation: String
-    biography: String
-    createdAt: DateTime! @timestamp(operations: [CREATE])
-    updatedAt: DateTime! @timestamp(operations: [UPDATE])
-    fullName: String! @computed
-    isDeceased: Boolean! @computed
-    age: Int @computed
-    
-    parents: [Family!]! @relationship(type: "CHILD_OF", direction: OUT)
-    spouses: [Individual!]! @relationship(type: "SPOUSE", direction: BOTH)
-    siblings: [Individual!]! @relationship(type: "SIBLING", direction: BOTH)
-    media: [Media!]! @relationship(type: "HAS_MEDIA", direction: OUT)
-  }
-`;
-
+@ObjectType()
 export class Individual {
+  @Field(() => ID)
   id: string;
+
+  @Field()
   gedcomId: string;
+
+  @Field()
   firstName: string;
+
+  @Field()
   lastName: string;
+
+  @Field({ nullable: true })
   middleName?: string;
-  sex: Sex
+
+  @Field()
+  sex: Sex | string;
+
+  @Field({ nullable: true })
   birthDate?: Date;
+
+  @Field({ nullable: true })
   deathDate?: Date;
+
+  @Field({ nullable: true })
   birthPlace?: string;
+
+  @Field({ nullable: true })
   deathPlace?: string;
+
+  @Field({ nullable: true })
   occupation?: string;
+
+  @Field({ nullable: true })
   biography?: string;
+
+  @Field()
   createdAt: Date;
+
+  @Field()
   updatedAt: Date;
+
+  relationships?: Array<{ type: string; node: unknown }>;
 
   constructor() {
     this.id = generate();
+    this.gedcomId = this.id;
+    this.firstName = "";
+    this.lastName = "";
+    this.sex = Sex.UNKNOWN;
     this.createdAt = new Date();
     this.updatedAt = new Date();
   }
 
   static fromNeo4j(node: Node): Individual {
     const individual = new Individual();
-    const properties = node.properties as Record<string, any>;
-    
-    individual.id = properties.id;
-    individual.gedcomId = properties.gedcomId;
-    individual.firstName = properties.firstName;
-    individual.lastName = properties.lastName;
-    individual.middleName = properties.middleName;
-    individual.sex = properties.sex;
-    individual.birthDate = properties.birthDate ? new Date(properties.birthDate) : undefined;
-    individual.deathDate = properties.deathDate ? new Date(properties.deathDate) : undefined;
-    individual.birthPlace = properties.birthPlace;
-    individual.deathPlace = properties.deathPlace;
-    individual.occupation = properties.occupation;
-    individual.biography = properties.biography;
-    individual.createdAt = new Date(properties.createdAt);
-    individual.updatedAt = new Date(properties.updatedAt);
+    const properties = node.properties as Record<string, unknown>;
+
+    individual.id = properties.id as string;
+    individual.gedcomId = properties.gedcomId as string;
+    individual.firstName = properties.firstName as string;
+    individual.lastName = properties.lastName as string;
+    individual.middleName = properties.middleName as string | undefined;
+    individual.sex = properties.sex as string;
+    individual.birthDate = properties.birthDate
+      ? new Date(properties.birthDate as string)
+      : undefined;
+    individual.deathDate = properties.deathDate
+      ? new Date(properties.deathDate as string)
+      : undefined;
+    individual.birthPlace = properties.birthPlace as string | undefined;
+    individual.deathPlace = properties.deathPlace as string | undefined;
+    individual.occupation = properties.occupation as string | undefined;
+    individual.biography = properties.biography as string | undefined;
+    individual.createdAt = properties.createdAt
+      ? new Date(properties.createdAt as string)
+      : new Date();
+    individual.updatedAt = properties.updatedAt
+      ? new Date(properties.updatedAt as string)
+      : new Date();
 
     return individual;
   }
@@ -90,31 +99,21 @@ export class Individual {
 
   get age(): number | undefined {
     if (!this.birthDate) return undefined;
-    
+
     const today = new Date();
     const birthDate = new Date(this.birthDate);
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
-    
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 && today.getDate() < birthDate.getDate())
+    ) {
       age--;
     }
-    
+
     return age;
   }
 }
-
-// Инициализация Neo4jGraphQL
-const neoSchema = new Neo4jGraphQL({
-  typeDefs,
-  driver: /* ваш Neo4j driver */,
-  resolvers: {
-    Individual: {
-      fullName: (parent) => parent.fullName,
-      isDeceased: (parent) => parent.isDeceased,
-      age: (parent) => parent.age
-    }
-  }
-});
 
 export default Individual;

@@ -7,8 +7,18 @@
   "scripts": {
     "start": "nest start",
     "start:dev": "nest start --watch",
-    "build": "webpack --mode production",
-    "test": "jest"
+    "build": "nest build",
+    "test": "jest",
+    "lint": "tsc --noEmit"
+  },
+  "jest": {
+    "moduleFileExtensions": ["js", "json", "ts"],
+    "rootDir": "src",
+    "testRegex": ".*\\.spec\\.ts$",
+    "transform": {
+      "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "testEnvironment": "node"
   },
   "dependencies": {
     "@neo4j/graphql": "^7.0.0",
@@ -20,10 +30,7 @@
     "aws-sdk": "^2.1692.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
-    "gedcom-js": "^0.3.0",
-    "gedcom-ts": "^1.1.1",
     "graphql": "^16.10.0",
-    "graphql-upload": "^17.0.0",
     "joi": "^17.13.3",
     "lodash": "^4.17.21",
     "multer": "^1.4.5-lts.2",

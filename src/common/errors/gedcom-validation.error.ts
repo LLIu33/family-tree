@@ -3,9 +3,10 @@ export class GEDCOMValidationError extends Error {
     public readonly errors: Array<{
       type: string;
       message: string;
-      line: number;
-      tag: string;
+      line?: number;
+      tag?: string;
       value?: string;
+      xref?: string;
     }>,
     public readonly fileMetadata?: {
       fileName: string;

@@ -67,10 +67,12 @@ export class FamilyTreeService {
     const individual = Neo4jResultUtils.normalizeValue(
       record.get("i")
     ) as Individual;
-    individual.relationships = record.get("relationships").map((rel) => ({
-      type: rel.type,
-      node: Neo4jResultUtils.normalizeValue(rel.node),
-    }));
+    individual.relationships = record
+      .get("relationships")
+      .map((rel: { type: string; node: unknown }) => ({
+        type: rel.type,
+        node: Neo4jResultUtils.normalizeValue(rel.node),
+      }));
 
     return individual;
   }
@@ -100,7 +102,11 @@ export class FamilyTreeService {
     };
 
     const result = await this.neo4jService.write(query, params);
-    return Neo4jResultUtils.getFirstResult<Family>(result.records);
+    const family = Neo4jResultUtils.getFirstResult<Family>(result.records);
+    if (!family) {
+      throw new Error(`Failed to create family ${familyId}`);
+    }
+    return family;
   }
 
   async getFamily(id: string): Promise<Family | null> {
@@ -124,7 +130,7 @@ export class FamilyTreeService {
     family.wife = Neo4jResultUtils.normalizeValue(record.get("wife"));
     family.children = record
       .get("children")
-      .map((child) => Neo4jResultUtils.normalizeValue(child));
+      .map((child: unknown) => Neo4jResultUtils.normalizeValue(child));
 
     return family;
   }
@@ -173,7 +179,9 @@ export class FamilyTreeService {
         break;
 
       default:
-        throw new Error(`Unsupported relationship type: ${type}`);
+        throw new Error(
+          `Unsupported relationship type: ${relationshipType}`
+        );
     }
 
     for (const query of queries) {
@@ -276,7 +284,7 @@ export class FamilyTreeService {
   async findPossibleRelationships(
     individualId1: string,
     individualId2: string
-  ): Promise<{ relation: string; degree: number }[]> {
+  ): Promise<{ path: string[]; degree: number; types: string[] }[]> {
     const query = `
       MATCH path = shortestPath((i1:Individual {id: $id1})-[*]-(i2:Individual {id: $id2}))
       WHERE all(r IN relationships(path) WHERE type(r) IN ['CHILD_OF', 'SPOUSE', 'SIBLING'])

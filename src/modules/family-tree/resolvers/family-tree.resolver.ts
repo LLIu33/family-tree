@@ -1,7 +1,16 @@
-import { Resolver, Query, Mutation, Args } from "@nestjs/graphql";
+import { Field, Int, ObjectType, Args, Mutation, Query, Resolver } from "@nestjs/graphql";
 import { FamilyTreeService } from "../services/family-tree.service";
 import { GedcomParserService } from "../services/gedcom-parser.service";
 import { Individual } from "../entities/individual.entity";
+
+@ObjectType()
+class GedcomImportResult {
+  @Field(() => Int)
+  individuals: number;
+
+  @Field(() => Int)
+  families: number;
+}
 
 @Resolver(() => Individual)
 export class FamilyTreeResolver {
@@ -15,23 +24,23 @@ export class FamilyTreeResolver {
     return "Family Tree API is working!";
   }
 
-  @Query(() => Object)
+  @Query(() => [Individual])
   async getAncestors(
     @Args("individualId") individualId: string,
-    @Args("generations", { nullable: true }) generations: number
+    @Args("generations", { type: () => Int, nullable: true }) generations?: number
   ) {
-    return this.familyTreeService.getAncestors(individualId, generations);
+    return this.familyTreeService.getAncestors(individualId, generations ?? 3);
   }
 
-  @Query(() => Object)
+  @Query(() => [Individual])
   async getDescendants(
     @Args("individualId") individualId: string,
-    @Args("generations", { nullable: true }) generations: number
+    @Args("generations", { type: () => Int, nullable: true }) generations?: number
   ) {
-    return this.familyTreeService.getDescendants(individualId, generations);
+    return this.familyTreeService.getDescendants(individualId, generations ?? 3);
   }
 
-  @Mutation(() => Object)
+  @Mutation(() => GedcomImportResult)
   async importGedcom(@Args("gedcomData") gedcomData: string) {
     return this.gedcomParserService.parseAndImport(gedcomData);
   }

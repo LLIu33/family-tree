@@ -20,12 +20,8 @@ import {
   CreateRelationshipDto,
   ImportGedcomDto,
 } from "../dto";
-import { GedcomEntity } from "../../../common/decorators/gedcom-entity.decorator";
-import { RelationType } from "../enums/relation-type.enum";
 import { Neo4jErrorFilter } from "../../../common/filters/neo4j-error.filter";
 import { GEDCOMValidationFilter } from "../../../common/filters/gedcom-validation.filter";
-import { StorageConfig } from "../../../config/configuration";
-import { ConfigService } from "@nestjs/config";
 import {
   ApiTags,
   ApiOperation,
@@ -41,8 +37,7 @@ export class FamilyTreeController {
   constructor(
     private readonly familyTreeService: FamilyTreeService,
     private readonly mediaService: MediaService,
-    private readonly gedcomParserService: GedcomParserService,
-    private readonly configService: ConfigService
+    private readonly gedcomParserService: GedcomParserService
   ) {}
 
   // ========== Individuals ==========
@@ -100,14 +95,9 @@ export class FamilyTreeController {
   @Post("relationships")
   @ApiOperation({ summary: "Create relationship between individuals" })
   async createRelationship(
-    @Body() createRelationshipDto: CreateRelationshipDto,
-    @Query("type") type: RelationType
+    @Body() createRelationshipDto: CreateRelationshipDto
   ) {
-    return this.familyTreeService.createRelationship({
-      fromIndividualId: createRelationshipDto.fromIndividualId,
-      toIndividualId: createRelationshipDto.toIndividualId,
-      relationshipType: type,
-    });
+    return this.familyTreeService.createRelationship(createRelationshipDto);
   }
 
   // ========== Media ==========
@@ -137,15 +127,11 @@ export class FamilyTreeController {
     @Body("description") description?: string,
     @Body("dateTaken") dateTaken?: Date
   ) {
-    // const storageConfig = this.configService.get<StorageConfig>("storage");
-    return this.mediaService.uploadMedia(
-      file as any,
-      {
-        attachedToId: individualId,
-        description,
-        dateTaken: dateTaken?.toISOString(),
-      } as any
-    );
+    return this.mediaService.createMedia(file, {
+      attachedToId: individualId,
+      description,
+      dateTaken: dateTaken?.toISOString(),
+    } as any);
   }
 
   // ========== GEDCOM Import ==========

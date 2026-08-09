@@ -1,15 +1,17 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { S3 } from "aws-sdk";
 import { v4 as uuidV4 } from "uuid";
-import * as sharp from "sharp";
+import sharp from "sharp";
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const AWS = require("aws-sdk");
 
 @Injectable()
 export class StorageService {
-  private s3: S3;
+  private s3: any;
 
   constructor(private readonly configService: ConfigService) {
-    this.s3 = new S3({
+    this.s3 = new AWS.S3({
       accessKeyId: this.configService.get("AWS_ACCESS_KEY_ID"),
       secretAccessKey: this.configService.get("AWS_SECRET_ACCESS_KEY"),
       region: this.configService.get("AWS_REGION"),
