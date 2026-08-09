@@ -26,3 +26,4 @@ npm run start:dev
 
 - Auth is not implemented
 - `gedcom-ts` / `gedcom-js` were removed from the runtime path; import uses an internal parser
+- Media storage uses AWS SDK v2 (`aws-sdk`); local storage is not implemented

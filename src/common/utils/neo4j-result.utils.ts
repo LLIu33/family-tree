@@ -1,5 +1,20 @@
-import { Record, Node, Relationship, int } from "neo4j-driver";
-import { isObject, isArray } from "lodash";
+import {
+  Record as Neo4jRecord,
+  Node,
+  Relationship,
+} from "neo4j-driver";
+
+function isObject(value: unknown): value is object {
+  return typeof value === "object" && value !== null;
+}
+
+function isNeo4jInteger(value: unknown): value is { toNumber: () => number } {
+  return (
+    isObject(value) &&
+    typeof (value as { toNumber?: unknown }).toNumber === "function" &&
+    typeof (value as { inSafeRange?: unknown }).inSafeRange === "function"
+  );
+}
 
 export class Neo4jResultUtils {
   /**
@@ -9,18 +24,18 @@ export class Neo4jResultUtils {
    * @returns Normalized JavaScript object or array of objects
    */
   static normalizeNeo4jResult<T = any>(
-    result: Record | Record[] | null | undefined,
+    result: Neo4jRecord | Neo4jRecord[] | null | undefined,
     returnType?: "node" | "relationship" | "value"
   ): T | T[] | null {
     if (!result) return null;
 
-    if (isArray(result)) {
+    if (Array.isArray(result)) {
       return result.map((record) =>
         this.normalizeRecord(record, returnType)
       ) as T[];
     }
 
-    return this.normalizeRecord(result as Record, returnType) as T;
+    return this.normalizeRecord(result as Neo4jRecord, returnType) as T;
   }
 
   /**
@@ -30,7 +45,7 @@ export class Neo4jResultUtils {
    * @returns Normalized JavaScript object
    */
   static normalizeRecord(
-    record: Record,
+    record: Neo4jRecord,
     returnType?: "node" | "relationship" | "value"
   ): any {
     if (!record) return null;
@@ -76,12 +91,12 @@ export class Neo4jResultUtils {
     }
 
     // Handle Neo4j integers
-    if (Number.isInteger(value)) {
+    if (isNeo4jInteger(value)) {
       return value.toNumber();
     }
 
     // Handle arrays
-    if (isArray(value)) {
+    if (Array.isArray(value)) {
       return value.map((v) => this.normalizeValue(v));
     }
 
@@ -188,7 +203,7 @@ export class Neo4jResultUtils {
    * @param result Neo4j result
    * @returns First record or null
    */
-  static getFirstResult<T = any>(result: Record[]): T | null {
+  static getFirstResult<T = any>(result: Neo4jRecord[]): T | null {
     if (!result || result.length === 0) return null;
     return this.normalizeNeo4jResult(result[0]) as T;
   }
@@ -199,7 +214,10 @@ export class Neo4jResultUtils {
    * @param fieldName Field name to extract
    * @returns Field value or null
    */
-  static getFirstField<T = any>(result: Record[], fieldName: string): T | null {
+  static getFirstField<T = any>(
+    result: Neo4jRecord[],
+    fieldName: string
+  ): T | null {
     const firstResult = this.getFirstResult(result);
     return firstResult ? firstResult[fieldName] : null;
   }

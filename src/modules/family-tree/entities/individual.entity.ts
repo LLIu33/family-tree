@@ -1,6 +1,6 @@
 import { Field, ID, ObjectType } from "@nestjs/graphql";
 import { Node } from "neo4j-driver";
-import { generate } from "shortid";
+import { v4 as uuidV4 } from "uuid";
 import { Sex } from "../enums/sex.enum";
 
 @ObjectType()
@@ -50,7 +50,7 @@ export class Individual {
   relationships?: Array<{ type: string; node: unknown }>;
 
   constructor() {
-    this.id = generate();
+    this.id = uuidV4();
     this.gedcomId = this.id;
     this.firstName = "";
     this.lastName = "";
