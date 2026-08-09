@@ -1,23 +1,80 @@
 # Family Tree API
 
-Genealogy management system with Neo4j backend
+Genealogy management API built with NestJS and Neo4j. There is no frontend in this repository — clients talk to REST and GraphQL.
 
 ## Features
 
 - CRUD for individuals and families
-- Relationship management
-- GEDCOM file import
-- Media attachments
-- Family tree visualization
+- Relationships via a **Family hub** model (`HUSBAND` / `WIFE` / `CHILD`)
+- Ancestors / descendants / tree JSON for visualization clients
+- GEDCOM import
+- Media upload (REST → S3)
 
-## Installation
+## Graph model
 
-1. Clone repository
-2. Install dependencies: `npm install`
-3. Configure `.env` file
-4. Start Neo4j: `docker-compose up neo4j`
-5. Run app: `npm run start:dev`
+Canonical relationships (write + read):
 
-## API Documentation
+```
+(Individual)-[:HUSBAND]->(Family)
+(Individual)-[:WIFE]->(Family)
+(Individual)-[:CHILD]->(Family)
+```
 
-Swagger UI available at `/api-docs` when enabled
+Parents of a person: `(child)-[:CHILD]->(Family)<-[:HUSBAND|WIFE]-(parent)`.
+
+Do not use `CHILD_OF`, `SPOUSE`, `FAMILY_MEMBER`, or `HAS_MEMBER` as the source of truth. If an old Neo4j database still has those types, wipe it and re-import (or migrate) before relying on navigation queries.
+
+## Requirements
+
+- Node.js 18+
+- Neo4j 4.4+ (Docker Compose included)
+- AWS S3 credentials when using media upload (`STORAGE_TYPE=s3`)
+
+## Setup
+
+```bash
+npm install
+cp .env.example .env
+docker-compose up -d neo4j
+npm run start:dev
+```
+
+- API: `http://localhost:3000`
+- GraphQL playground: `http://localhost:3000/graphql`
+- Swagger (when `SWAGGER_ENABLED=true`): `http://localhost:3000/api-docs`
+
+## Main REST endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/family-tree/individuals` | Create individual |
+| GET | `/family-tree/individuals/:id` | Get individual |
+| GET | `/family-tree/individuals/:id/ancestors` | Ancestors |
+| GET | `/family-tree/individuals/:id/descendants` | Descendants |
+| POST | `/family-tree/families` | Create family (+ optional member IDs) |
+| GET | `/family-tree/families/:id` | Get family with members |
+| POST | `/family-tree/relationships` | Link people (`PARENT` / `SPOUSE` / `SIBLING`, …) |
+| POST | `/family-tree/import/gedcom` | Import GEDCOM file |
+| GET | `/family-tree/visualize/:rootId` | Tree subgraph JSON |
+| POST | `/family-tree/media` | Media endpoints (see media controller) |
+
+## Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `npm run start:dev` | Nest watch mode |
+| `npm run build` | `nest build` |
+| `npm run test` | Jest unit tests |
+| `npm run lint` | Typecheck (`tsc --noEmit`) |
+
+## Current limitations
+
+- **No authentication** — treat as open/dev API for now
+- **No UI** — `visualize` returns JSON only
+- **Media storage is S3-only** — `STORAGE_TYPE=local` is not implemented yet
+- **GraphQL media upload** is not wired; use REST for media
+- APOC is **not** required
+
+## License
+
+MIT

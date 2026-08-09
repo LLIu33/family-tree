@@ -1,5 +1,4 @@
 import { registerAs } from "@nestjs/config";
-import { validateConfig } from "./validation-schema";
 
 export interface Neo4jConfig {
   scheme: string;
@@ -11,15 +10,12 @@ export interface Neo4jConfig {
 }
 
 export const neo4jConfig = registerAs("neo4j", (): Neo4jConfig => {
-  const config = {
-    scheme: process.env.NEO4J_SCHEME!,
-    host: process.env.NEO4J_HOST!,
-    port: parseInt(process.env.NEO4J_PORT!, 10),
-    username: process.env.NEO4J_USERNAME!,
-    password: process.env.NEO4J_PASSWORD!,
+  return {
+    scheme: process.env.NEO4J_SCHEME || "bolt",
+    host: process.env.NEO4J_HOST || "localhost",
+    port: parseInt(process.env.NEO4J_PORT || "7687", 10),
+    username: process.env.NEO4J_USERNAME || "neo4j",
+    password: process.env.NEO4J_PASSWORD || "your_password",
     database: process.env.NEO4J_DATABASE || "neo4j",
   };
-
-  validateConfig(config);
-  return config;
 });

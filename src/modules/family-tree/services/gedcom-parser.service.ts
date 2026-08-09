@@ -1,10 +1,22 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { Place, People, Act, Identificator, GEDCOM, ReadGed } from "gedcom-ts";
-import { GEDCOMValidationError } from "../errors/gedcom-validation.error";
+import { ReadGed } from "gedcom-ts";
+import { GEDCOMValidationError } from "../../../common/errors/gedcom-validation.error";
 import { Individual, Family } from "../entities";
-import { generateGedcomId } from "../../common/utils/gedcom-parser.utils";
+import { GedcomParserUtils } from "../../../common/utils/gedcom-parser.utils";
 import { EventService } from "./event.service";
 import { Neo4jService } from "../../../neo4j/neo4j.service";
+import { EventType } from "../enums/event-type.enum";
+
+type FamilyImportRecord = Family & {
+  husbandId?: string;
+  wifeId?: string;
+  childrenIds?: string[];
+};
+
+/** gedcom-ts typings do not match the runtime API used here */
+type GedcomDocument = any;
+type GedcomPerson = any;
+type GedcomFamily = any;
 
 @Injectable()
 export class GedcomParserService {
@@ -21,13 +33,10 @@ export class GedcomParserService {
     source: string = "unknown"
   ): Promise<{ individuals: number; families: number }> {
     try {
-      // Парсинг GEDCOM с помощью gedcom-ts
-      const gedcom = new ReadGed(gedcomText);
+      const gedcom: GedcomDocument = new ReadGed(gedcomText);
 
-      // Валидация версии
       this.validateVersion(gedcom);
 
-      // Извлечение и преобразование данных
       const { individuals, families, errors } = this.extractData(gedcom);
 
       if (errors.length > 0) {
@@ -39,20 +48,27 @@ export class GedcomParserService {
         });
       }
 
-      // Импорт в Neo4j
       return await this.importToNeo4j(individuals, families);
     } catch (error) {
-      this.logger.error("GEDCOM parsing failed", error.stack);
+      if (error instanceof GEDCOMValidationError) {
+        throw error;
+      }
+      this.logger.error("GEDCOM parsing failed", (error as Error).stack);
       throw new GEDCOMValidationError(
-        [{ type: "PARSE_ERROR", message: error.message }],
+        [
+          {
+            type: "PARSE_ERROR",
+            message: (error as Error).message,
+          },
+        ],
         { fileName: "import.ged", size: gedcomText.length, encoding: "UTF-8" }
       );
     }
   }
 
-  private validateVersion(gedcom: GEDCOM) {
-    const header = gedcom.getHeader();
-    const version = header?.getVersion()?.getValue();
+  private validateVersion(gedcom: GedcomDocument) {
+    const header = gedcom.getHeader?.();
+    const version = header?.getVersion?.()?.getValue?.();
 
     if (!version || !this.SUPPORTED_VERSIONS.includes(version)) {
       throw new Error(
@@ -63,37 +79,37 @@ export class GedcomParserService {
     }
   }
 
-  private extractData(gedcom: GEDCOM): {
+  private extractData(gedcom: GedcomDocument): {
     individuals: Individual[];
-    families: Family[];
-    errors: any[];
+    families: FamilyImportRecord[];
+    errors: Array<{ type: string; message: string; xref?: string }>;
   } {
     const individuals: Individual[] = [];
-    const families: Family[] = [];
-    const errors: any[] = [];
+    const families: FamilyImportRecord[] = [];
+    const errors: Array<{ type: string; message: string; xref?: string }> = [];
 
-    // Обработка индивидов
-    gedcom.getPeople().forEach((person: People) => {
+    const people: GedcomPerson[] = gedcom.getPeople?.() || [];
+    people.forEach((person: GedcomPerson) => {
       try {
         individuals.push(this.mapIndividual(person));
       } catch (error) {
         errors.push({
           type: "INDIVIDUAL_PARSE_ERROR",
-          message: error.message,
-          xref: person.getId()?.getValue(),
+          message: (error as Error).message,
+          xref: person.getId?.()?.getValue?.(),
         });
       }
     });
 
-    // Обработка семей
-    gedcom.getFamilies().forEach((family: Act) => {
+    const gedcomFamilies: GedcomFamily[] = gedcom.getFamilies?.() || [];
+    gedcomFamilies.forEach((family: GedcomFamily) => {
       try {
         families.push(this.mapFamily(family));
       } catch (error) {
         errors.push({
           type: "FAMILY_PARSE_ERROR",
-          message: error.message,
-          xref: family.getId()?.getValue(),
+          message: (error as Error).message,
+          xref: family.getId?.()?.getValue?.(),
         });
       }
     });
@@ -101,60 +117,80 @@ export class GedcomParserService {
     return { individuals, families, errors };
   }
 
-  private mapIndividual(person: People): Individual {
-    const xref = person.getId()?.getValue() || generateGedcomId("individual");
-    const name = person.getName();
+  private mapIndividual(person: GedcomPerson): Individual {
+    const xref =
+      person.getId?.()?.getValue?.() ||
+      GedcomParserUtils.generateGedcomId("INDI");
+    const name = person.getName?.();
     const [firstName, lastName] = this.parseName(
-      name?.getValue() || "Unknown /Unknown/"
+      name?.getValue?.() || "Unknown /Unknown/"
     );
 
-    const individual: Individual = {
-      id: xref,
-      gedcomId: xref,
-      firstName,
-      lastName,
-      sex: person.getSex()?.getValue()?.charAt(0) || "U",
-      birthDate: this.getEventDate(person.getBirth()),
-      birthPlace: this.getEventPlace(person.getBirth()),
-      deathDate: this.getEventDate(person.getDeath()),
-      deathPlace: this.getEventPlace(person.getDeath()),
-    };
+    const individual = new Individual();
+    individual.id = xref;
+    individual.gedcomId = xref;
+    individual.firstName = firstName;
+    individual.lastName = lastName;
+    individual.sex = person.getSex?.()?.getValue?.()?.charAt(0) || "U";
+    individual.birthDate = this.parseDate(
+      this.getEventDate(person.getBirth?.())
+    );
+    individual.birthPlace = this.getEventPlace(person.getBirth?.());
+    individual.deathDate = this.parseDate(
+      this.getEventDate(person.getDeath?.())
+    );
+    individual.deathPlace = this.getEventPlace(person.getDeath?.());
 
     return individual;
   }
 
-  private mapFamily(family: Act): Family {
-    const xref = family.getId()?.getValue() || generateGedcomId("family");
-    const marriage = family.getMarriage();
+  private mapFamily(family: GedcomFamily): FamilyImportRecord {
+    const xref =
+      family.getId?.()?.getValue?.() ||
+      GedcomParserUtils.generateGedcomId("FAM");
+    const marriage = family.getMarriage?.();
+    const children = family.getChildren?.() || [];
 
     return {
       id: xref,
       gedcomId: xref,
-      husbandId: family.getHusband()?.getValue()?.replace("@", ""),
-      wifeId: family.getWife()?.getValue()?.replace("@", ""),
-      childrenIds: family
-        .getChildren()
-        .map((child) => child.getValue()?.replace("@", "")),
+      husbandId: family.getHusband?.()?.getValue?.()?.replace(/@/g, ""),
+      wifeId: family.getWife?.()?.getValue?.()?.replace(/@/g, ""),
+      childrenIds: children
+        .map((child: GedcomPerson) =>
+          child.getValue?.()?.replace(/@/g, "")
+        )
+        .filter((id: string | undefined): id is string => Boolean(id)),
       marriageDate: this.getEventDate(marriage),
-      divorceDate: this.getEventDate(family.getDivorce()),
+      divorceDate: this.getEventDate(family.getDivorce?.()),
     };
   }
 
-  private getEventDate(event: any): string | undefined {
-    return event?.getDate()?.getValue();
+  private getEventDate(event: unknown): string | undefined {
+    return (event as { getDate?: () => { getValue?: () => string } })
+      ?.getDate?.()
+      ?.getValue?.();
   }
 
-  private getEventPlace(event: any): string | undefined {
-    return event?.getPlace()?.getValue();
+  private getEventPlace(event: unknown): string | undefined {
+    return (event as { getPlace?: () => { getValue?: () => string } })
+      ?.getPlace?.()
+      ?.getValue?.();
+  }
+
+  private parseDate(value?: string): Date | undefined {
+    if (!value) return undefined;
+    const normalized = GedcomParserUtils.normalizeGedcomDate(value);
+    return normalized ? new Date(normalized) : undefined;
   }
 
   private async importToNeo4j(
     individuals: Individual[],
-    families: Family[]
+    families: FamilyImportRecord[]
   ): Promise<{ individuals: number; families: number }> {
-    const queries = [];
+    const queries: Array<{ query: string; params?: Record<string, unknown> }> =
+      [];
 
-    // Импорт индивидов
     for (const ind of individuals) {
       queries.push({
         query: `
@@ -168,19 +204,20 @@ export class GedcomParserService {
             firstName: ind.firstName,
             lastName: ind.lastName,
             sex: ind.sex,
-            birthDate: ind.birthDate,
-            deathDate: ind.deathDate,
+            birthDate: ind.birthDate ? ind.birthDate.toISOString() : null,
+            deathDate: ind.deathDate ? ind.deathDate.toISOString() : null,
+            birthPlace: ind.birthPlace || null,
+            deathPlace: ind.deathPlace || null,
           },
         },
       });
 
-      // Импорт событий индивида
       if (ind.birthDate) {
         queries.push(
           await this.eventService.createEventQuery(
             ind.id,
-            "BIRT",
-            ind.birthDate,
+            EventType.BIRTH,
+            ind.birthDate.toISOString(),
             ind.birthPlace
           )
         );
@@ -189,15 +226,14 @@ export class GedcomParserService {
         queries.push(
           await this.eventService.createEventQuery(
             ind.id,
-            "DEAT",
-            ind.deathDate,
+            EventType.DEATH,
+            ind.deathDate.toISOString(),
             ind.deathPlace
           )
         );
       }
     }
 
-    // Импорт семей
     for (const fam of families) {
       queries.push({
         query: `
@@ -208,20 +244,18 @@ export class GedcomParserService {
           id: fam.id,
           properties: {
             gedcomId: fam.gedcomId,
-            marriageDate: fam.marriageDate,
-            divorceDate: fam.divorceDate,
+            marriageDate: fam.marriageDate || null,
+            divorceDate: fam.divorceDate || null,
           },
         },
       });
 
-      // Связи членов семьи
       if (fam.husbandId) {
         queries.push({
           query: `
             MATCH (i:Individual {id: $indId})
             MATCH (f:Family {id: $famId})
-            MERGE (i)-[:FAMILY_MEMBER {role: "HUSBAND"}]->(f)
-            MERGE (f)-[:HAS_MEMBER {role: "HUSBAND"}]->(i)
+            MERGE (i)-[:HUSBAND]->(f)
           `,
           params: { indId: fam.husbandId, famId: fam.id },
         });
@@ -232,21 +266,18 @@ export class GedcomParserService {
           query: `
             MATCH (i:Individual {id: $indId})
             MATCH (f:Family {id: $famId})
-            MERGE (i)-[:FAMILY_MEMBER {role: "WIFE"}]->(f)
-            MERGE (f)-[:HAS_MEMBER {role: "WIFE"}]->(i)
+            MERGE (i)-[:WIFE]->(f)
           `,
           params: { indId: fam.wifeId, famId: fam.id },
         });
       }
 
-      for (const childId of fam.childrenIds) {
-        if (!childId) continue;
+      for (const childId of fam.childrenIds || []) {
         queries.push({
           query: `
             MATCH (i:Individual {id: $indId})
             MATCH (f:Family {id: $famId})
-            MERGE (i)-[:FAMILY_MEMBER {role: "CHILD"}]->(f)
-            MERGE (f)-[:HAS_MEMBER {role: "CHILD"}]->(i)
+            MERGE (i)-[:CHILD]->(f)
           `,
           params: { indId: childId, famId: fam.id },
         });
@@ -265,8 +296,7 @@ export class GedcomParserService {
   }
 
   private parseName(name: string): [string, string] {
-    // Обработка формата GEDCOM: First /Last/
     const parts = name.split("/");
-    return [parts[0].trim() || "Unknown", parts[1].trim() || "Unknown"];
+    return [parts[0].trim() || "Unknown", parts[1]?.trim() || "Unknown"];
   }
 }

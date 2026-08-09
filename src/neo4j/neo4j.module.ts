@@ -5,6 +5,12 @@ import { NEO4J_OPTIONS, NEO4J_DRIVER } from "./neo4j.constants";
 import { ConfigModule } from "@nestjs/config";
 import { createDriver } from "./neo4j.util";
 
+type Neo4jAsyncOptions = {
+  imports?: any[];
+  inject?: any[];
+  useFactory: (...args: any[]) => Neo4jConfig | Promise<Neo4jConfig>;
+};
+
 @Global()
 @Module({})
 export class Neo4jModule {
@@ -19,7 +25,7 @@ export class Neo4jModule {
         {
           provide: NEO4J_DRIVER,
           inject: [NEO4J_OPTIONS],
-          useFactory: async (config: Neo4jConfig) => createDriver(config),
+          useFactory: async (options: Neo4jConfig) => createDriver(options),
         },
         Neo4jService,
       ],
@@ -27,7 +33,7 @@ export class Neo4jModule {
     };
   }
 
-  static forRootAsync(configProvider): DynamicModule {
+  static forRootAsync(configProvider: Neo4jAsyncOptions): DynamicModule {
     return {
       module: Neo4jModule,
       imports: [ConfigModule],
@@ -35,11 +41,11 @@ export class Neo4jModule {
         {
           provide: NEO4J_OPTIONS,
           ...configProvider,
-        } as Provider<any>,
+        } as Provider,
         {
           provide: NEO4J_DRIVER,
           inject: [NEO4J_OPTIONS],
-          useFactory: async (config: Neo4jConfig) => createDriver(config),
+          useFactory: async (options: Neo4jConfig) => createDriver(options),
         },
         Neo4jService,
       ],

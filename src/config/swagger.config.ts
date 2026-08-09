@@ -1,6 +1,5 @@
 import { registerAs } from "@nestjs/config";
 import { OpenAPIObject } from "@nestjs/swagger";
-import { validateConfig } from "./validation-schema";
 
 export interface SwaggerConfig {
   enabled: boolean;
@@ -11,7 +10,7 @@ export interface SwaggerConfig {
 }
 
 export const swaggerConfig = registerAs("swagger", (): SwaggerConfig => {
-  const config = {
+  return {
     enabled: process.env.SWAGGER_ENABLED === "true",
     title: process.env.SWAGGER_TITLE || "Family Tree API",
     description:
@@ -20,9 +19,6 @@ export const swaggerConfig = registerAs("swagger", (): SwaggerConfig => {
     version: process.env.SWAGGER_VERSION || "1.0",
     path: process.env.SWAGGER_PATH || "api-docs",
   };
-
-  validateConfig(config);
-  return config;
 });
 
 export const SWAGGER_CONFIG: Omit<OpenAPIObject, "paths"> = {

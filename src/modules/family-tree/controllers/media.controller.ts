@@ -7,17 +7,13 @@ import {
   Get,
   Param,
   Delete,
-  UseGuards,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { MediaService } from "../services/media.service";
 import { CreateMediaDto } from "../dto/create-media.dto";
-// import { JwtAuthGuard } from "../../../auth/guards/jwt-auth.guard";
-import { ApiBearerAuth, ApiConsumes, ApiTags } from "@nestjs/swagger";
+import { ApiConsumes, ApiTags } from "@nestjs/swagger";
 
 @ApiTags("Family Tree Media")
-@ApiBearerAuth()
-// @UseGuards(JwtAuthGuard)
 @Controller("family-tree/media")
 export class MediaController {
   constructor(private readonly mediaService: MediaService) {}

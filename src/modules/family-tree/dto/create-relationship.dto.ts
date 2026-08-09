@@ -22,14 +22,14 @@ export class CreateRelationshipDto {
   toIndividualId: string;
 
   @ApiProperty({
-    example: "MARRIED",
+    example: "PARENT",
     description: "Тип устанавливаемой связи",
     enum: RelationType,
-    required: false,
+    required: true,
   })
-  @IsOptional()
   @IsString()
-  relationshipType?: RelationType;
+  @IsNotEmpty()
+  relationshipType: RelationType;
 
   @ApiProperty({
     example: "2020-05-15",

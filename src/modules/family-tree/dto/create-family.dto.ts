@@ -4,10 +4,8 @@ import {
   IsOptional,
   IsDateString,
   IsArray,
-  ArrayNotEmpty,
-  ValidateNested,
+  MaxLength,
 } from "class-validator";
-import { Type } from "class-transformer";
 
 export class CreateFamilyDto {
   @ApiProperty({

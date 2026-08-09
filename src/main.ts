@@ -1,26 +1,18 @@
 import { NestFactory } from "@nestjs/core";
-import { AppModule } from "./app.module";
-import multer from "multer";
 import { ValidationPipe } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { json, urlencoded } from "express";
+import { AppModule } from "./app.module";
+import { SwaggerConfig } from "./config/swagger.config";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const configService = app.get(ConfigService);
 
-  // Настройка загрузки файлов
-  app.use(
-    multer({
-      limits: {
-        fileSize: parseInt(process.env.MAX_FILE_SIZE_MB!) * 1024 * 1024,
-      },
-    }).single("file")
-  );
-
-  // Увеличение лимита размера JSON
   app.use(json({ limit: "10mb" }));
   app.use(urlencoded({ extended: true, limit: "10mb" }));
 
-  // Глобальная валидация
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
@@ -29,6 +21,18 @@ async function bootstrap() {
     })
   );
 
-  await app.listen(process.env.PORT || 3000);
+  const swagger = configService.get<SwaggerConfig>("swagger");
+  if (swagger?.enabled) {
+    const documentBuilder = new DocumentBuilder()
+      .setTitle(swagger.title)
+      .setDescription(swagger.description)
+      .setVersion(swagger.version)
+      .build();
+    const document = SwaggerModule.createDocument(app, documentBuilder);
+    SwaggerModule.setup(swagger.path, app, document);
+  }
+
+  await app.listen(configService.get<number>("PORT") || 3000);
 }
+
 bootstrap();

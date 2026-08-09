@@ -1,15 +1,18 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { S3 } from "aws-sdk";
 import { v4 as uuidV4 } from "uuid";
-import * as sharp from "sharp";
+import sharp from "sharp";
+
+// aws-sdk@1 in this repo has no usable TypeScript types
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const AWS = require("aws-sdk");
 
 @Injectable()
 export class StorageService {
-  private s3: S3;
+  private s3: any;
 
   constructor(private readonly configService: ConfigService) {
-    this.s3 = new S3({
+    this.s3 = new AWS.S3({
       accessKeyId: this.configService.get("AWS_ACCESS_KEY_ID"),
       secretAccessKey: this.configService.get("AWS_SECRET_ACCESS_KEY"),
       region: this.configService.get("AWS_REGION"),
@@ -20,10 +23,9 @@ export class StorageService {
     file: Express.Multer.File,
     type: string
   ): Promise<{ url: string; thumbnailUrl: string }> {
-    const bucketName = this.configService.get("AWS_S3_BUCKET");
+    const bucketName = this.configService.get<string>("AWS_S3_BUCKET");
     const uploadId = uuidV4();
 
-    // Загрузка основного файла
     const fileKey = `${type.toLowerCase()}/${uploadId}_original.${file.originalname
       .split(".")
       .pop()}`;
@@ -37,7 +39,6 @@ export class StorageService {
       })
       .promise();
 
-    // Создание и загрузка превью (для изображений)
     let thumbnailKey = "";
     if (type === "PHOTO") {
       thumbnailKey = `${type.toLowerCase()}/${uploadId}_thumbnail.webp`;
@@ -66,7 +67,7 @@ export class StorageService {
   }
 
   async deleteFile(url: string): Promise<void> {
-    const bucketName = this.configService.get("AWS_S3_BUCKET");
+    const bucketName = this.configService.get<string>("AWS_S3_BUCKET");
     const key = url.replace(`https://${bucketName}.s3.amazonaws.com/`, "");
 
     await this.s3

@@ -7,6 +7,7 @@ import {
   UseInterceptors,
   UseFilters,
   ParseIntPipe,
+  DefaultValuePipe,
   Query,
   UploadedFile,
 } from "@nestjs/common";
@@ -20,12 +21,8 @@ import {
   CreateRelationshipDto,
   ImportGedcomDto,
 } from "../dto";
-import { GedcomEntity } from "../../../common/decorators/gedcom-entity.decorator";
-import { RelationType } from "../enums/relation-type.enum";
 import { Neo4jErrorFilter } from "../../../common/filters/neo4j-error.filter";
 import { GEDCOMValidationFilter } from "../../../common/filters/gedcom-validation.filter";
-import { StorageConfig } from "../../../config/configuration";
-import { ConfigService } from "@nestjs/config";
 import {
   ApiTags,
   ApiOperation,
@@ -41,11 +38,8 @@ export class FamilyTreeController {
   constructor(
     private readonly familyTreeService: FamilyTreeService,
     private readonly mediaService: MediaService,
-    private readonly gedcomParserService: GedcomParserService,
-    private readonly configService: ConfigService
+    private readonly gedcomParserService: GedcomParserService
   ) {}
-
-  // ========== Individuals ==========
 
   @Post("individuals")
   @ApiOperation({ summary: "Create a new individual" })
@@ -67,7 +61,8 @@ export class FamilyTreeController {
   @ApiOperation({ summary: "Get ancestors of an individual" })
   async getAncestors(
     @Param("id") id: string,
-    @Query("generations", new ParseIntPipe()) generations: number = 3
+    @Query("generations", new DefaultValuePipe(3), ParseIntPipe)
+    generations: number
   ) {
     return this.familyTreeService.getAncestors(id, generations);
   }
@@ -76,12 +71,11 @@ export class FamilyTreeController {
   @ApiOperation({ summary: "Get descendants of an individual" })
   async getDescendants(
     @Param("id") id: string,
-    @Query("generations", new ParseIntPipe()) generations: number = 3
+    @Query("generations", new DefaultValuePipe(3), ParseIntPipe)
+    generations: number
   ) {
     return this.familyTreeService.getDescendants(id, generations);
   }
-
-  // ========== Families ==========
 
   @Post("families")
   @ApiOperation({ summary: "Create a new family" })
@@ -95,29 +89,19 @@ export class FamilyTreeController {
     return this.familyTreeService.getFamily(id);
   }
 
-  // ========== Relationships ==========
-
   @Post("relationships")
   @ApiOperation({ summary: "Create relationship between individuals" })
   async createRelationship(
-    @Body() createRelationshipDto: CreateRelationshipDto,
-    @Query("type") type: RelationType
+    @Body() createRelationshipDto: CreateRelationshipDto
   ) {
-    return this.familyTreeService.createRelationship({
-      fromIndividualId: createRelationshipDto.fromIndividualId,
-      toIndividualId: createRelationshipDto.toIndividualId,
-      relationshipType: type,
-    });
+    return this.familyTreeService.createRelationship(createRelationshipDto);
   }
-
-  // ========== Media ==========
 
   @Post("individuals/:id/media")
   @ApiOperation({ summary: "Upload media for individual" })
   @ApiConsumes("multipart/form-data")
   @ApiBody({
     description: "Media file",
-    type: "multipart/form-data",
     schema: {
       type: "object",
       properties: {
@@ -137,18 +121,12 @@ export class FamilyTreeController {
     @Body("description") description?: string,
     @Body("dateTaken") dateTaken?: Date
   ) {
-    // const storageConfig = this.configService.get<StorageConfig>("storage");
-    return this.mediaService.uploadMedia(
-      file as any,
-      {
-        attachedToId: individualId,
-        description,
-        dateTaken: dateTaken?.toISOString(),
-      } as any
-    );
+    return this.mediaService.createMedia(file, {
+      attachedToId: individualId,
+      description,
+      dateTaken: dateTaken?.toISOString(),
+    } as any);
   }
-
-  // ========== GEDCOM Import ==========
 
   @Post("import/gedcom")
   @ApiOperation({ summary: "Import family tree from GEDCOM file" })
@@ -156,22 +134,17 @@ export class FamilyTreeController {
   @UseInterceptors(FileInterceptor("file"))
   async importGedcom(
     @UploadedFile() file: Express.Multer.File,
-    @Body() importGedcomDto: ImportGedcomDto
+    @Body() _importGedcomDto: ImportGedcomDto
   ) {
     const gedcomText = file.buffer.toString("utf-8");
-    return this.gedcomParserService.parseAndImport(
-      gedcomText
-      //   importGedcomDto.source
-    );
+    return this.gedcomParserService.parseAndImport(gedcomText);
   }
-
-  // ========== Tree Visualization ==========
 
   @Get("visualize/:rootId")
   @ApiOperation({ summary: "Visualize family tree from root individual" })
   async visualizeTree(
     @Param("rootId") rootId: string,
-    @Query("depth", new ParseIntPipe()) depth: number = 3
+    @Query("depth", new DefaultValuePipe(3), ParseIntPipe) depth: number
   ) {
     return this.familyTreeService.visualizeTree(rootId, depth);
   }
