@@ -7,6 +7,7 @@ import {
   UseInterceptors,
   UseFilters,
   ParseIntPipe,
+  DefaultValuePipe,
   Query,
   UploadedFile,
 } from "@nestjs/common";
@@ -40,8 +41,6 @@ export class FamilyTreeController {
     private readonly gedcomParserService: GedcomParserService
   ) {}
 
-  // ========== Individuals ==========
-
   @Post("individuals")
   @ApiOperation({ summary: "Create a new individual" })
   @ApiResponse({ status: 201, description: "Individual created" })
@@ -62,7 +61,8 @@ export class FamilyTreeController {
   @ApiOperation({ summary: "Get ancestors of an individual" })
   async getAncestors(
     @Param("id") id: string,
-    @Query("generations", new ParseIntPipe()) generations: number = 3
+    @Query("generations", new DefaultValuePipe(3), ParseIntPipe)
+    generations: number
   ) {
     return this.familyTreeService.getAncestors(id, generations);
   }
@@ -71,12 +71,11 @@ export class FamilyTreeController {
   @ApiOperation({ summary: "Get descendants of an individual" })
   async getDescendants(
     @Param("id") id: string,
-    @Query("generations", new ParseIntPipe()) generations: number = 3
+    @Query("generations", new DefaultValuePipe(3), ParseIntPipe)
+    generations: number
   ) {
     return this.familyTreeService.getDescendants(id, generations);
   }
-
-  // ========== Families ==========
 
   @Post("families")
   @ApiOperation({ summary: "Create a new family" })
@@ -90,8 +89,6 @@ export class FamilyTreeController {
     return this.familyTreeService.getFamily(id);
   }
 
-  // ========== Relationships ==========
-
   @Post("relationships")
   @ApiOperation({ summary: "Create relationship between individuals" })
   async createRelationship(
@@ -100,14 +97,11 @@ export class FamilyTreeController {
     return this.familyTreeService.createRelationship(createRelationshipDto);
   }
 
-  // ========== Media ==========
-
   @Post("individuals/:id/media")
   @ApiOperation({ summary: "Upload media for individual" })
   @ApiConsumes("multipart/form-data")
   @ApiBody({
     description: "Media file",
-    type: "multipart/form-data",
     schema: {
       type: "object",
       properties: {
@@ -134,30 +128,23 @@ export class FamilyTreeController {
     } as any);
   }
 
-  // ========== GEDCOM Import ==========
-
   @Post("import/gedcom")
   @ApiOperation({ summary: "Import family tree from GEDCOM file" })
   @ApiConsumes("multipart/form-data")
   @UseInterceptors(FileInterceptor("file"))
   async importGedcom(
     @UploadedFile() file: Express.Multer.File,
-    @Body() importGedcomDto: ImportGedcomDto
+    @Body() _importGedcomDto: ImportGedcomDto
   ) {
     const gedcomText = file.buffer.toString("utf-8");
-    return this.gedcomParserService.parseAndImport(
-      gedcomText
-      //   importGedcomDto.source
-    );
+    return this.gedcomParserService.parseAndImport(gedcomText);
   }
-
-  // ========== Tree Visualization ==========
 
   @Get("visualize/:rootId")
   @ApiOperation({ summary: "Visualize family tree from root individual" })
   async visualizeTree(
     @Param("rootId") rootId: string,
-    @Query("depth", new ParseIntPipe()) depth: number = 3
+    @Query("depth", new DefaultValuePipe(3), ParseIntPipe) depth: number
   ) {
     return this.familyTreeService.visualizeTree(rootId, depth);
   }

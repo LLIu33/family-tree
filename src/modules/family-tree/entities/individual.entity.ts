@@ -1,4 +1,5 @@
 import { Field, ID, ObjectType } from "@nestjs/graphql";
+import { ApiHideProperty } from "@nestjs/swagger";
 import { Node } from "neo4j-driver";
 import { v4 as uuidV4 } from "uuid";
 import { Sex } from "../enums/sex.enum";
@@ -47,6 +48,7 @@ export class Individual {
   @Field()
   updatedAt: Date;
 
+  @ApiHideProperty()
   relationships?: Array<{ type: string; node: unknown }>;
 
   constructor() {

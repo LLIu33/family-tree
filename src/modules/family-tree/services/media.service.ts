@@ -56,7 +56,7 @@ export class MediaService {
     return result.records.map((record) => record.get("m").properties);
   }
 
-  async deleteMedia(mediaId: string): Promise<void> {
+  async deleteMedia(mediaId: string): Promise<boolean> {
     const result = await this.neo4jService.read(
       `MATCH (m:Media {id: $mediaId})
              RETURN m.url AS url, m.thumbnailUrl AS thumbnailUrl`,
@@ -75,8 +75,11 @@ export class MediaService {
     }
 
     await this.neo4jService.write(
-      `MATCH (m:Media {id: $mediaId}) DETACH DELETE m`,
+      `MATCH (m:Media {id: $mediaId})
+             OPTIONAL MATCH (m)-[r]-()
+             DELETE r, m`,
       { mediaId }
     );
+    return true;
   }
 }
