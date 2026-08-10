@@ -26,22 +26,62 @@ Do not use `CHILD_OF`, `SPOUSE`, `FAMILY_MEMBER`, or `HAS_MEMBER` as the source 
 
 ## Requirements
 
-- Node.js 18+
-- Neo4j 4.4+ (Docker Compose included)
+- Docker + Docker Compose (recommended), **or** Node.js **20+** (NestJS 11; **22 LTS** recommended) on the host
+- Neo4j 4.4+ (included in Compose)
 - AWS S3 credentials when using media upload (`STORAGE_TYPE=s3`)
 
 ## Setup
 
+### Docker (recommended)
+
+1. Create env and align Neo4j password with `NEO4J_AUTH` in `docker-compose.yml` (default: `neo4j` / `your_password`):
+
+```bash
+cp .env.example .env
+```
+
+2. Start Neo4j + API (hot reload via bind-mount):
+
+```bash
+docker compose up --build
+```
+
+Compose overrides `NEO4J_HOST=neo4j` for the `app` container — keep `localhost` in `.env` for host runs.
+
+First start runs `npm ci` into the `app_node_modules` volume (needs registry access from Docker). After changing `package.json` / lockfile:
+
+```bash
+docker compose down
+docker volume rm family-tree_app_node_modules
+docker compose up --build
+```
+
+### Host (optional)
+
 ```bash
 npm install
 cp .env.example .env
-docker-compose up -d neo4j
+docker compose up -d neo4j
 npm run start:dev
 ```
 
-- API: `http://localhost:3000`
-- GraphQL playground: `http://localhost:3000/graphql`
-- Swagger (when `SWAGGER_ENABLED=true`): `http://localhost:3000/api-docs`
+Use `NEO4J_HOST=localhost` when the API runs on the host.
+
+### URLs
+
+| Service | URL |
+|---------|-----|
+| API | `http://localhost:3000` |
+| REST base | `http://localhost:3000/family-tree` |
+| GraphQL playground | `http://localhost:3000/graphql` |
+| Swagger (when `SWAGGER_ENABLED=true`) | `http://localhost:3000/api-docs` |
+| Neo4j Browser | `http://localhost:7474` |
+
+Notes:
+
+- `API_PREFIX` in `.env` is not applied yet — routes are `/family-tree/...`, not `/api/...`.
+- Core CRUD / GEDCOM / tree queries work without AWS. Media upload needs real `AWS_*` values.
+- Change the default Neo4j password before any non-local use.
 
 ## Main REST endpoints
 
