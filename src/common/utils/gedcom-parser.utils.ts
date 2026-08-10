@@ -97,7 +97,7 @@ export class GedcomParserUtils {
         DEC: 11,
       };
 
-      // Handle different GEDCOM date formats
+      // Handle different GEDCOM date formats (UTC calendar day — avoid local TZ shift)
       const parts = gedcomDate.trim().split(/\s+/);
       if (parts.length === 3) {
         // Format: "1 JAN 1990"
@@ -109,8 +109,7 @@ export class GedcomParserUtils {
         if (month === undefined) return null;
         if (isNaN(year)) return null;
 
-        const date = new Date(year, month, day);
-        return date.toISOString().split("T")[0];
+        return new Date(Date.UTC(year, month, day)).toISOString().split("T")[0];
       } else if (parts.length === 2) {
         // Format: "JAN 1990"
         const month = months[parts[0].toUpperCase()];
@@ -119,15 +118,13 @@ export class GedcomParserUtils {
         if (month === undefined) return null;
         if (isNaN(year)) return null;
 
-        const date = new Date(year, month, 1);
-        return date.toISOString().split("T")[0];
+        return new Date(Date.UTC(year, month, 1)).toISOString().split("T")[0];
       } else if (parts.length === 1) {
         // Format: "1990"
         const year = parseInt(parts[0], 10);
         if (isNaN(year)) return null;
 
-        const date = new Date(year, 0, 1);
-        return date.toISOString().split("T")[0];
+        return new Date(Date.UTC(year, 0, 1)).toISOString().split("T")[0];
       }
     } catch (e) {
       return null;

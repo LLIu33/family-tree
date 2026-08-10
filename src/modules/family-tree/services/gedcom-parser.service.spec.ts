@@ -55,4 +55,50 @@ describe("GedcomParserService", () => {
     expect(queries.some((q) => q.query.includes("[:CHILD]"))).toBe(true);
     expect(queries.some((q) => q.query.includes("FAMILY_MEMBER"))).toBe(false);
   });
+
+  it("merges multiple BIRT facts and stores UTC calendar dates", async () => {
+    const neo4j = {
+      executeTransaction: jest.fn().mockResolvedValue([]),
+    };
+    const events = {
+      createEventQuery: jest.fn().mockResolvedValue({
+        query: "RETURN 1",
+        params: {},
+      }),
+    };
+
+    const service = new GedcomParserService(
+      neo4j as unknown as Neo4jService,
+      events as unknown as EventService
+    );
+
+    const gedcom = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I500001@ INDI
+1 NAME Георгий /Ткаченко/
+1 SEX M
+1 BIRT
+2 DATE 5 NOV 1956
+2 PLAC Таганрог
+1 BIRT
+2 PLAC Таганрог, Ростовская область, Россия
+0 TRLR
+`;
+
+    await service.parseAndImport(gedcom);
+
+    const queries = neo4j.executeTransaction.mock.calls[0][0] as Array<{
+      query: string;
+      params?: { id?: string; properties?: Record<string, unknown> };
+    }>;
+    const individualQuery = queries.find(
+      (q) => q.params?.id === "I500001" && q.params?.properties
+    );
+
+    expect(individualQuery?.params?.properties).toMatchObject({
+      birthDate: "1956-11-05T00:00:00.000Z",
+      birthPlace: "Таганрог, Ростовская область, Россия",
+    });
+  });
 });

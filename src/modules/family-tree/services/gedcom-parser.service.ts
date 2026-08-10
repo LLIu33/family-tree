@@ -161,8 +161,12 @@ export class GedcomParserService {
       record.children.find((child) => child.tag === "NAME")?.value ||
       "Unknown /Unknown/";
     const [firstName, lastName] = this.parseName(name);
-    const birth = record.children.find((child) => child.tag === "BIRT");
-    const death = record.children.find((child) => child.tag === "DEAT");
+    const birth = this.mergeEventFacts(
+      record.children.filter((child) => child.tag === "BIRT")
+    );
+    const death = this.mergeEventFacts(
+      record.children.filter((child) => child.tag === "DEAT")
+    );
 
     const individual = new Individual();
     individual.id = xref;
@@ -172,12 +176,34 @@ export class GedcomParserService {
     individual.sex =
       record.children.find((child) => child.tag === "SEX")?.value?.charAt(0) ||
       "U";
-    individual.birthDate = this.parseDate(this.childValue(birth, "DATE"));
-    individual.birthPlace = this.childValue(birth, "PLAC");
-    individual.deathDate = this.parseDate(this.childValue(death, "DATE"));
-    individual.deathPlace = this.childValue(death, "PLAC");
+    individual.birthDate = this.parseDate(birth.date);
+    individual.birthPlace = birth.place;
+    individual.deathDate = this.parseDate(death.date);
+    individual.deathPlace = death.place;
 
     return individual;
+  }
+
+  /** Merge repeated BIRT/DEAT blocks (e.g. MyHeritage: date in one, fuller place in another). */
+  private mergeEventFacts(records: GedcomRecord[]): {
+    date?: string;
+    place?: string;
+  } {
+    let date: string | undefined;
+    let place: string | undefined;
+
+    for (const record of records) {
+      const nextDate = this.childValue(record, "DATE");
+      const nextPlace = this.childValue(record, "PLAC");
+      if (!date && nextDate) {
+        date = nextDate;
+      }
+      if (nextPlace && (!place || nextPlace.length > place.length)) {
+        place = nextPlace;
+      }
+    }
+
+    return { date, place };
   }
 
   private mapFamily(record: GedcomRecord): FamilyImportRecord {
