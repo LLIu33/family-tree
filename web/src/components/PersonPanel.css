@@ -1,0 +1,119 @@
+.person-panel {
+  width: min(400px, 100%);
+  padding: 1rem 1.1rem 1.25rem;
+  max-height: min(80vh, 900px);
+  overflow: auto;
+  position: sticky;
+  top: 1.25rem;
+}
+
+.person-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.person-panel__header .eyebrow {
+  margin-bottom: 0.35rem;
+}
+
+.person-panel__header h2,
+.person-panel__section h3 {
+  margin: 0;
+  font-family: var(--font-display);
+}
+
+.person-panel__close,
+.person-panel__toggle {
+  flex-shrink: 0;
+}
+
+.person-panel__form,
+.person-panel__child-form {
+  margin-bottom: 1.25rem;
+}
+
+.person-panel__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.person-panel__section {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.person-panel__relatives {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.person-panel__relative {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.person-panel__relative:hover {
+  border-color: rgba(44, 95, 78, 0.45);
+  box-shadow: 0 10px 24px rgba(26, 36, 32, 0.08);
+}
+
+.person-panel__relative span,
+.person-panel__empty,
+.person-panel__note {
+  font-size: 0.92rem;
+}
+
+.person-panel__note {
+  margin-bottom: 1rem;
+}
+
+.person-panel .field textarea,
+.person-panel .field select {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.7rem 0.85rem;
+  background: rgba(255, 255, 255, 0.65);
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.person-panel .field textarea {
+  resize: vertical;
+  min-height: 7rem;
+}
+
+.person-panel .field textarea:focus,
+.person-panel .field select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(44, 95, 78, 0.15);
+}
+
+@media (max-width: 900px) {
+  .person-panel {
+    width: 100%;
+    max-height: none;
+    position: static;
+  }
+}
+
+@media (max-width: 640px) {
+  .person-panel__grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,3 +1,7 @@
+.tree-page {
+  width: min(1320px, calc(100% - 2.5rem));
+}
+
 .field-hint {
   margin: 1rem 0 0;
   font-size: 0.9rem;
@@ -9,4 +13,23 @@
 
 .canvas-wrap {
   margin-top: 1.25rem;
+}
+
+.tree-layout {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-top: 1.25rem;
+}
+
+.tree-layout .canvas-wrap {
+  flex: 1;
+  min-width: 0;
+  margin-top: 0;
+}
+
+@media (max-width: 900px) {
+  .tree-layout {
+    flex-direction: column;
+  }
 }

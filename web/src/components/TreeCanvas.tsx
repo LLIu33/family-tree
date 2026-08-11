@@ -6,6 +6,8 @@ interface Props {
   nodes: IndividualNode[]
   relationships: TreeRelationship[]
   rootId?: string | null
+  selectedId?: string | null
+  onSelect?: (id: string) => void
 }
 
 interface LaidOutNode extends IndividualNode {
@@ -304,7 +306,13 @@ function edgePath(
   return `M ${x1} ${a.y + CARD_H} V ${midY} H ${x2} V ${b.y}`
 }
 
-export function TreeCanvas({ nodes, relationships, rootId }: Props) {
+export function TreeCanvas({
+  nodes,
+  relationships,
+  rootId,
+  selectedId,
+  onSelect,
+}: Props) {
   const laid = useMemo(
     () => layoutNodes(nodes, relationships, rootId),
     [nodes, relationships, rootId],
@@ -362,8 +370,18 @@ export function TreeCanvas({ nodes, relationships, rootId }: Props) {
               className="tree-fo"
             >
               <div
-                className={`tree-node ${n.id === rootId ? 'is-root' : ''}`}
+                className={`tree-node ${n.id === rootId ? 'is-root' : ''} ${n.id === selectedId ? 'is-selected' : ''}`}
                 title={n.id}
+                role="button"
+                tabIndex={0}
+                aria-pressed={n.id === selectedId}
+                onClick={() => onSelect?.(n.id)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    onSelect?.(n.id)
+                  }
+                }}
               >
                 <strong>{displayName(n)}</strong>
                 <span>{years || '—'}</span>

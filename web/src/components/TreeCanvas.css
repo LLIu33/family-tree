@@ -35,7 +35,7 @@
   font-size: 0.85rem;
   color: var(--ink);
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-  cursor: default;
+  cursor: pointer;
 }
 
 .tree-node strong {
@@ -58,4 +58,9 @@
 .tree-node.is-root {
   border-color: var(--accent);
   background: rgba(44, 95, 78, 0.08);
+}
+
+.tree-node.is-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(44, 95, 78, 0.25);
 }

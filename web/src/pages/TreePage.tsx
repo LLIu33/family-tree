@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ApiError, getFullGraph } from '../api'
 import type { IndividualNode, TreeRelationship } from '../api'
 import { AppNav } from '../components/AppNav'
+import { PersonPanel } from '../components/PersonPanel'
 import { TreeCanvas } from '../components/TreeCanvas'
 import './TreePage.css'
 
@@ -12,6 +13,15 @@ export function TreePage() {
   const [componentCount, setComponentCount] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  async function refreshGraph() {
+    const data = await getFullGraph()
+    setNodes(data.nodes ?? [])
+    setRelationships(data.relationships ?? [])
+    setRootId(data.rootId)
+    setComponentCount(data.componentCount ?? 0)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -31,6 +41,7 @@ export function TreePage() {
         setNodes([])
         setRelationships([])
         setRootId(null)
+        setSelectedId(null)
         setError(
           err instanceof ApiError ? err.message : 'Не удалось загрузить древо',
         )
@@ -72,12 +83,24 @@ export function TreePage() {
                 ? ` · отдельных веток: ${componentCount} (показана первая/крупнейшая)`
                 : ''}
             </p>
-            <div className="canvas-wrap">
-              <TreeCanvas
-                nodes={nodes}
-                relationships={relationships}
-                rootId={rootId}
-              />
+            <div className="tree-layout">
+              <div className="canvas-wrap">
+                <TreeCanvas
+                  nodes={nodes}
+                  relationships={relationships}
+                  rootId={rootId}
+                  selectedId={selectedId}
+                  onSelect={setSelectedId}
+                />
+              </div>
+              {selectedId && (
+                <PersonPanel
+                  personId={selectedId}
+                  onClose={() => setSelectedId(null)}
+                  onOpenPerson={setSelectedId}
+                  onTreeChanged={refreshGraph}
+                />
+              )}
             </div>
           </>
         )}
