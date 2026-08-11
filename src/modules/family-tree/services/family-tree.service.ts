@@ -16,6 +16,10 @@ import { RelationType } from "../enums/relation-type.enum";
 import { Neo4jResultUtils } from "../../../common/utils/neo4j-result.utils";
 import { GedcomParserUtils } from "../../../common/utils/gedcom-parser.utils";
 import { Sex } from "../enums/sex.enum";
+import {
+  IndividualDetail,
+  IndividualSummary,
+} from "../interfaces/individual-summary.interface";
 
 const MAX_GENERATIONS = 10;
 
@@ -333,7 +337,10 @@ export class FamilyTreeService {
     return components;
   }
 
-  async getIndividual(treeId: string, id: string): Promise<Individual | null> {
+  async getIndividual(
+    treeId: string,
+    id: string
+  ): Promise<IndividualDetail | null> {
     const query = `
       MATCH (i:Individual {id: $id, treeId: $treeId})
       OPTIONAL MATCH (i)-[r]->(related)
@@ -347,14 +354,73 @@ export class FamilyTreeService {
     const record = result.records[0];
     const individual = Neo4jResultUtils.normalizeValue(
       record.get("i")
-    ) as Individual;
-    (individual as Individual & { relationships: unknown }).relationships =
-      record.get("relationships").map((rel: { type: string; node: unknown }) => ({
+    ) as IndividualDetail;
+    individual.relationships = record
+      .get("relationships")
+      .map((rel: { type: string; node: unknown }) => ({
         type: rel.type,
         node: Neo4jResultUtils.normalizeValue(rel.node),
       }));
 
+    const [parents, spouses, children] = await Promise.all([
+      this.loadRelativeSummaries(
+        treeId,
+        id,
+        `
+        MATCH (i:Individual {id: $id, treeId: $treeId})-[:CHILD]->(f:Family)
+              <-[:HUSBAND|WIFE]-(p:Individual {treeId: $treeId})
+        WHERE f.treeId = $treeId OR f.treeId IS NULL
+        RETURN DISTINCT p AS person
+        `
+      ),
+      this.loadRelativeSummaries(
+        treeId,
+        id,
+        `
+        MATCH (i:Individual {id: $id, treeId: $treeId})-[:HUSBAND|WIFE]->(f:Family)
+              <-[:HUSBAND|WIFE]-(s:Individual {treeId: $treeId})
+        WHERE (f.treeId = $treeId OR f.treeId IS NULL) AND s.id <> i.id
+        RETURN DISTINCT s AS person
+        `
+      ),
+      this.loadRelativeSummaries(
+        treeId,
+        id,
+        `
+        MATCH (i:Individual {id: $id, treeId: $treeId})-[:HUSBAND|WIFE]->(f:Family)
+              <-[:CHILD]-(c:Individual {treeId: $treeId})
+        WHERE f.treeId = $treeId OR f.treeId IS NULL
+        RETURN DISTINCT c AS person
+        `
+      ),
+    ]);
+
+    individual.relatives = { parents, spouses, children };
     return individual;
+  }
+
+  private async loadRelativeSummaries(
+    treeId: string,
+    id: string,
+    query: string
+  ): Promise<IndividualSummary[]> {
+    const result = await this.neo4jService.read(query, { treeId, id });
+    return result.records
+      .map((record) => record.get("person"))
+      .filter((person: unknown) => person != null)
+      .map((person: unknown) => this.toIndividualSummary(person));
+  }
+
+  private toIndividualSummary(person: unknown): IndividualSummary {
+    const normalized = Neo4jResultUtils.normalizeValue(person) as Individual;
+    return {
+      id: normalized.id,
+      firstName: normalized.firstName,
+      lastName: normalized.lastName,
+      sex: normalized.sex as string | undefined,
+      birthDate: normalized.birthDate,
+      deathDate: normalized.deathDate,
+    };
   }
 
   async createFamily(treeId: string, createFamilyDto: CreateFamilyDto): Promise<Family> {

@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Param,
   UseInterceptors,
@@ -11,6 +12,7 @@ import {
   DefaultValuePipe,
   Query,
   UploadedFile,
+  NotFoundException,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { FamilyTreeService } from "../services/family-tree.service";
@@ -21,6 +23,7 @@ import {
   CreateFamilyDto,
   CreateRelationshipDto,
   ImportGedcomDto,
+  UpdateIndividualDto,
 } from "../dto";
 import { Neo4jErrorFilter } from "../../../common/filters/neo4j-error.filter";
 import { GEDCOMValidationFilter } from "../../../common/filters/gedcom-validation.filter";
@@ -85,7 +88,24 @@ export class FamilyTreeController {
   @ApiResponse({ status: 200, description: "Individual found" })
   @ApiResponse({ status: 404, description: "Individual not found" })
   async getIndividual(@CurrentUser() user: AuthUser, @Param("id") id: string) {
-    return this.familyTreeService.getIndividual(user.treeId, id);
+    const individual = await this.familyTreeService.getIndividual(
+      user.treeId,
+      id
+    );
+    if (!individual) {
+      throw new NotFoundException(`Individual ${id} not found`);
+    }
+    return individual;
+  }
+
+  @Patch("individuals/:id")
+  @ApiOperation({ summary: "Update individual in the current tree" })
+  async updateIndividual(
+    @CurrentUser() user: AuthUser,
+    @Param("id") id: string,
+    @Body() dto: UpdateIndividualDto
+  ) {
+    return this.familyTreeService.updateIndividual(user.treeId, id, dto);
   }
 
   @Get("individuals/:id/ancestors")
