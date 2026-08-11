@@ -1,7 +1,9 @@
+import { NotFoundException } from "@nestjs/common";
 import { FamilyTreeService } from "./family-tree.service";
 import { RelationType } from "../enums/relation-type.enum";
 import { Sex } from "../enums/sex.enum";
 import { Neo4jService } from "../../../neo4j/neo4j.service";
+import { Neo4jResultUtils } from "../../../common/utils/neo4j-result.utils";
 
 describe("FamilyTreeService relationships (Family hub)", () => {
   let service: FamilyTreeService;
@@ -94,5 +96,63 @@ describe("FamilyTreeService relationships (Family hub)", () => {
         relationshipType: RelationType.GODPARENT,
       })
     ).rejects.toThrow(/Unsupported relationship type/);
+  });
+});
+
+describe("FamilyTreeService updateIndividual", () => {
+  let service: FamilyTreeService;
+  let neo4j: { read: jest.Mock; write: jest.Mock; executeTransaction: jest.Mock };
+
+  beforeEach(() => {
+    neo4j = {
+      read: jest.fn(),
+      write: jest.fn(),
+      executeTransaction: jest.fn(),
+    };
+    service = new FamilyTreeService(neo4j as unknown as Neo4jService);
+  });
+
+  it("patches provided fields and returns individual", async () => {
+    const node = {
+      id: "I1",
+      firstName: "Иван",
+      lastName: "Иванов",
+      sex: "M",
+      biography: "Заметка",
+    };
+    neo4j.write.mockResolvedValue({
+      records: [
+        {
+          get: (key: string) => (key === "i" ? { properties: node } : null),
+          keys: ["i"],
+          toObject: () => ({ i: node }),
+        },
+      ],
+    });
+    jest.spyOn(Neo4jResultUtils, "getFirstResult").mockReturnValue(node as any);
+
+    const result = await service.updateIndividual("tree-1", "I1", {
+      firstName: "Иван",
+      biography: "Заметка",
+    });
+
+    expect(neo4j.write).toHaveBeenCalled();
+    const [query, params] = neo4j.write.mock.calls[0];
+    expect(query).toContain("MATCH (i:Individual {id: $id, treeId: $treeId})");
+    expect(query).toContain("SET");
+    expect(params.treeId).toBe("tree-1");
+    expect(params.id).toBe("I1");
+    expect(params.firstName).toBe("Иван");
+    expect(params.biography).toBe("Заметка");
+    expect(result).toEqual(node);
+  });
+
+  it("throws NotFoundException when person missing", async () => {
+    neo4j.write.mockResolvedValue({ records: [] });
+    jest.spyOn(Neo4jResultUtils, "getFirstResult").mockReturnValue(null as any);
+
+    await expect(
+      service.updateIndividual("tree-1", "missing", { firstName: "A" })
+    ).rejects.toThrow(NotFoundException);
   });
 });

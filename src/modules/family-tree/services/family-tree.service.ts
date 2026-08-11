@@ -10,6 +10,7 @@ import {
   CreateIndividualDto,
   CreateFamilyDto,
   CreateRelationshipDto,
+  UpdateIndividualDto,
 } from "../dto";
 import { RelationType } from "../enums/relation-type.enum";
 import { Neo4jResultUtils } from "../../../common/utils/neo4j-result.utils";
@@ -59,6 +60,50 @@ export class FamilyTreeService {
 
     const result = await this.neo4jService.write(query, params);
     return Neo4jResultUtils.getFirstResult<Individual>(result.records)!;
+  }
+
+  async updateIndividual(
+    treeId: string,
+    id: string,
+    dto: UpdateIndividualDto
+  ): Promise<Individual> {
+    const sets: string[] = ["i.updatedAt = datetime()"];
+    const params: Record<string, unknown> = { treeId, id };
+
+    const assign = (field: string, value: unknown) => {
+      if (value !== undefined) {
+        sets.push(`i.${field} = $${field}`);
+        params[field] = value;
+      }
+    };
+
+    assign("firstName", dto.firstName);
+    assign("lastName", dto.lastName);
+    assign("sex", dto.sex);
+    assign("birthDate", dto.birthDate);
+    assign("deathDate", dto.deathDate);
+    assign("birthPlace", dto.birthPlace);
+    assign("deathPlace", dto.deathPlace);
+    assign("biography", dto.biography);
+
+    if (sets.length === 1) {
+      throw new BadRequestException("No fields to update");
+    }
+
+    const result = await this.neo4jService.write(
+      `
+    MATCH (i:Individual {id: $id, treeId: $treeId})
+    SET ${sets.join(", ")}
+    RETURN i
+    `,
+      params
+    );
+
+    const updated = Neo4jResultUtils.getFirstResult<Individual>(result.records);
+    if (!updated) {
+      throw new NotFoundException(`Individual ${id} not found`);
+    }
+    return updated;
   }
 
   async searchIndividuals(
