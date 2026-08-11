@@ -31,6 +31,49 @@ export interface IndividualNode {
   deathDate?: string
 }
 
+export interface IndividualSummary {
+  id: string
+  firstName?: string
+  lastName?: string
+  sex?: string
+  birthDate?: string
+  deathDate?: string
+}
+
+export interface IndividualDetail extends IndividualNode {
+  birthPlace?: string
+  deathPlace?: string
+  biography?: string
+  occupation?: string
+  relatives?: {
+    parents: IndividualSummary[]
+    spouses: IndividualSummary[]
+    children: IndividualSummary[]
+  }
+}
+
+export interface UpdateIndividualInput {
+  firstName?: string
+  lastName?: string
+  sex?: string
+  birthDate?: string | null
+  deathDate?: string | null
+  birthPlace?: string | null
+  deathPlace?: string | null
+  biography?: string | null
+}
+
+export interface AddChildInput {
+  firstName: string
+  lastName: string
+  sex: string
+  birthDate?: string
+  deathDate?: string
+  birthPlace?: string
+  deathPlace?: string
+  biography?: string
+}
+
 export interface TreeRelationship {
   source: string
   target: string
@@ -211,9 +254,29 @@ export async function searchIndividuals(
   return request<IndividualNode[]>(`/family-tree/individuals?${params}`)
 }
 
-export async function getIndividual(id: string): Promise<IndividualNode> {
-  return request<IndividualNode>(
+export async function getIndividual(id: string): Promise<IndividualDetail> {
+  return request<IndividualDetail>(
     `/family-tree/individuals/${encodeURIComponent(id)}`,
+  )
+}
+
+export async function updateIndividual(
+  id: string,
+  input: UpdateIndividualInput,
+): Promise<IndividualDetail> {
+  return request<IndividualDetail>(
+    `/family-tree/individuals/${encodeURIComponent(id)}`,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  )
+}
+
+export async function addChild(
+  parentId: string,
+  input: AddChildInput,
+): Promise<{ child: IndividualDetail; linkedParentIds: string[] }> {
+  return request(
+    `/family-tree/individuals/${encodeURIComponent(parentId)}/children`,
+    { method: 'POST', body: JSON.stringify(input) },
   )
 }
 
