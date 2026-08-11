@@ -3,13 +3,13 @@ import { IsString, IsNotEmpty, IsOptional } from "class-validator";
 
 export class ImportGedcomDto {
   @ApiProperty({
-    example: "FamilySearch",
+    example: "web",
     description: "Источник данных GEDCOM",
-    required: true,
+    required: false,
   })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  source: string;
+  source?: string;
 
   @ApiProperty({
     example: "1.0",

@@ -161,16 +161,44 @@ export class GedcomParserService {
     const nameRecord = record.children.find((child) => child.tag === "NAME");
     const givn = nameRecord?.children.find((c) => c.tag === "GIVN")?.value;
     const surn = nameRecord?.children.find((c) => c.tag === "SURN")?.value;
+    const marriedName =
+      nameRecord?.children.find((c) => c.tag === "_MARNM")?.value?.trim() ||
+      undefined;
     const [parsedFirst, parsedLast] = this.parseName(
       nameRecord?.value || "Unknown /Unknown/"
     );
-    const firstName = (givn || parsedFirst || "").trim() || "Unknown";
-    const lastName = (surn || parsedLast || "").trim() || "Unknown";
+
+    const emptySurname = (value?: string | null): boolean =>
+      !value?.trim() || value.trim().toLowerCase() === "unknown";
+
+    let firstName = (givn || parsedFirst || "").trim() || "Unknown";
+    let lastName = (surn || parsedLast || "").trim();
+    // MyHeritage often leaves maiden SURN empty and puts married name in _MARNM.
+    if (emptySurname(lastName)) {
+      lastName = marriedName || "Unknown";
+    }
+
+    let middleName: string | undefined;
+    // "Любовь Ивановна" in GIVN with empty surname → first + patronymic.
+    if (emptySurname(surn) && emptySurname(parsedLast)) {
+      const parts = firstName.split(/\s+/).filter(Boolean);
+      if (
+        parts.length >= 2 &&
+        /(?:овна|евна|ична|инична|ович|евич|ич)$/i.test(parts[parts.length - 1])
+      ) {
+        firstName = parts[0];
+        middleName = parts.slice(1).join(" ");
+      }
+    }
+
     const birth = this.mergeEventFacts(
       record.children.filter((child) => child.tag === "BIRT")
     );
     const death = this.mergeEventFacts(
       record.children.filter((child) => child.tag === "DEAT")
+    );
+    const burial = this.mergeEventFacts(
+      record.children.filter((child) => child.tag === "BURI")
     );
 
     const individual = new Individual();
@@ -178,6 +206,11 @@ export class GedcomParserService {
     individual.gedcomId = xref;
     individual.firstName = firstName;
     individual.lastName = lastName;
+    individual.middleName = middleName;
+    individual.namePrefix =
+      nameRecord?.children.find((c) => c.tag === "NPFX")?.value?.trim() ||
+      undefined;
+    individual.marriedName = marriedName;
     individual.sex =
       record.children.find((child) => child.tag === "SEX")?.value?.charAt(0) ||
       "U";
@@ -185,30 +218,96 @@ export class GedcomParserService {
     individual.birthPlace = birth.place;
     individual.deathDate = this.parseDate(death.date);
     individual.deathPlace = death.place;
+    individual.deathCause = death.cause;
+    individual.burialPlace = burial.place;
+    individual.occupation = this.childValue(record, "OCCU")?.trim() || undefined;
+    individual.email = this.collectEmails(record);
+    individual.retirementNote = this.collectRetirement(record);
+    individual.extraEvents = this.collectExtraEvents(record);
+    individual.biography = this.collectNotes(record);
 
     return individual;
   }
 
-  /** Merge repeated BIRT/DEAT blocks (e.g. MyHeritage: date in one, fuller place in another). */
+  private collectEmails(record: GedcomRecord): string | undefined {
+    const emails: string[] = [];
+    for (const resi of record.children.filter((c) => c.tag === "RESI")) {
+      for (const child of resi.children) {
+        if (child.tag !== "EMAIL" || !child.value) continue;
+        const email = child.value.replace(/@@/g, "@").trim();
+        if (email && !emails.includes(email)) emails.push(email);
+      }
+    }
+    return emails.length ? emails.join("; ") : undefined;
+  }
+
+  private collectRetirement(record: GedcomRecord): string | undefined {
+    const reti = record.children.find((c) => c.tag === "RETI");
+    if (!reti) return undefined;
+    const value = reti.value?.trim() || "";
+    const date = this.childValue(reti, "DATE")?.trim();
+    if (!value && !date) return undefined;
+    if (value && date) return `${value} (${date})`;
+    return value || date;
+  }
+
+  private collectExtraEvents(record: GedcomRecord): string | undefined {
+    const lines: string[] = [];
+    for (const even of record.children.filter((c) => c.tag === "EVEN")) {
+      const type = this.childValue(even, "TYPE")?.trim();
+      const value = even.value?.trim() || this.childValue(even, "NOTE")?.trim();
+      const cleaned = value ? this.stripSimpleHtml(value) : "";
+      if (!type && !cleaned) continue;
+      lines.push(type && cleaned ? `${type}: ${cleaned}` : type || cleaned);
+    }
+    return lines.length ? lines.join("\n") : undefined;
+  }
+
+  /** Flatten INDI NOTE values (strip simple HTML from MyHeritage). */
+  private collectNotes(record: GedcomRecord): string | undefined {
+    const notes = record.children
+      .filter((child) => child.tag === "NOTE" && child.value)
+      .map((child) => this.stripSimpleHtml(child.value!))
+      .filter((text) => text.length > 0);
+    if (notes.length === 0) return undefined;
+    return notes.join("\n\n");
+  }
+
+  private stripSimpleHtml(value: string): string {
+    return value
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/&nbsp;/gi, " ")
+      .replace(/<[^>]+>/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  /** Merge repeated BIRT/DEAT/BURI blocks (e.g. MyHeritage: date in one, fuller place in another). */
   private mergeEventFacts(records: GedcomRecord[]): {
     date?: string;
     place?: string;
+    cause?: string;
   } {
     let date: string | undefined;
     let place: string | undefined;
+    let cause: string | undefined;
 
     for (const record of records) {
       const nextDate = this.childValue(record, "DATE");
       const nextPlace = this.childValue(record, "PLAC");
+      const nextCause = this.childValue(record, "CAUS");
       if (!date && nextDate) {
         date = nextDate;
       }
       if (nextPlace && (!place || nextPlace.length > place.length)) {
         place = nextPlace;
       }
+      if (nextCause && (!cause || nextCause.length > cause.length)) {
+        cause = nextCause;
+      }
     }
 
-    return { date, place };
+    return { date, place, cause };
   }
 
   private mapFamily(record: GedcomRecord): FamilyImportRecord {
@@ -230,8 +329,12 @@ export class GedcomParserService {
         .filter((child) => child.tag === "CHIL")
         .map((child) => this.cleanXref(child.value))
         .filter((id): id is string => Boolean(id)),
-      marriageDate: this.childValue(marriage, "DATE"),
-      divorceDate: this.childValue(divorce, "DATE"),
+      marriageDate: this.parseDate(this.childValue(marriage, "DATE"))
+        ?.toISOString()
+        .split("T")[0],
+      divorceDate: this.parseDate(this.childValue(divorce, "DATE"))
+        ?.toISOString()
+        .split("T")[0],
     };
   }
 
@@ -275,11 +378,21 @@ export class GedcomParserService {
             treeId,
             firstName: ind.firstName,
             lastName: ind.lastName,
+            middleName: ind.middleName || null,
             sex: ind.sex,
             birthDate: ind.birthDate ? ind.birthDate.toISOString() : null,
             deathDate: ind.deathDate ? ind.deathDate.toISOString() : null,
             birthPlace: ind.birthPlace || null,
             deathPlace: ind.deathPlace || null,
+            deathCause: ind.deathCause || null,
+            burialPlace: ind.burialPlace || null,
+            occupation: ind.occupation || null,
+            retirementNote: ind.retirementNote || null,
+            email: ind.email || null,
+            namePrefix: ind.namePrefix || null,
+            marriedName: ind.marriedName || null,
+            biography: ind.biography || null,
+            extraEvents: ind.extraEvents || null,
           },
         },
       });
@@ -373,6 +486,6 @@ export class GedcomParserService {
 
   private parseName(name: string): [string, string] {
     const parts = name.split("/");
-    return [parts[0].trim() || "Unknown", parts[1]?.trim() || "Unknown"];
+    return [parts[0].trim() || "Unknown", parts[1]?.trim() || ""];
   }
 }

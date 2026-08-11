@@ -215,13 +215,25 @@ export function PersonPanel({
       {infoMessage && <p className="muted person-panel__note">{infoMessage}</p>}
 
       <form className="person-panel__form" onSubmit={handleSave}>
-        <div className="field">
-          <label htmlFor="person-first-name">Имя</label>
-          <input id="person-first-name" value={form.firstName} onChange={(e) => updateForm('firstName', e.target.value)} />
+        <div className="person-panel__grid">
+          <div className="field">
+            <label htmlFor="person-first-name">Имя</label>
+            <input id="person-first-name" value={form.firstName} onChange={(e) => updateForm('firstName', e.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor="person-last-name">Фамилия</label>
+            <input id="person-last-name" value={form.lastName} onChange={(e) => updateForm('lastName', e.target.value)} />
+          </div>
         </div>
-        <div className="field">
-          <label htmlFor="person-last-name">Фамилия</label>
-          <input id="person-last-name" value={form.lastName} onChange={(e) => updateForm('lastName', e.target.value)} />
+        <div className="person-panel__grid">
+          <div className="field">
+            <label htmlFor="person-name-prefix">Префикс / звание</label>
+            <input id="person-name-prefix" value={form.namePrefix} onChange={(e) => updateForm('namePrefix', e.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor="person-married-name">Фамилия в браке</label>
+            <input id="person-married-name" value={form.marriedName} onChange={(e) => updateForm('marriedName', e.target.value)} />
+          </div>
         </div>
         <div className="field">
           <label htmlFor="person-sex">Пол</label>
@@ -248,6 +260,30 @@ export function PersonPanel({
         <div className="field">
           <label htmlFor="person-death-place">Место смерти</label>
           <input id="person-death-place" value={form.deathPlace} onChange={(e) => updateForm('deathPlace', e.target.value)} />
+        </div>
+        <div className="field">
+          <label htmlFor="person-death-cause">Причина смерти</label>
+          <input id="person-death-cause" value={form.deathCause} onChange={(e) => updateForm('deathCause', e.target.value)} />
+        </div>
+        <div className="field">
+          <label htmlFor="person-burial-place">Место захоронения</label>
+          <input id="person-burial-place" value={form.burialPlace} onChange={(e) => updateForm('burialPlace', e.target.value)} />
+        </div>
+        <div className="field">
+          <label htmlFor="person-occupation">Профессия</label>
+          <input id="person-occupation" value={form.occupation} onChange={(e) => updateForm('occupation', e.target.value)} />
+        </div>
+        <div className="field">
+          <label htmlFor="person-retirement">Отставка / пенсия</label>
+          <input id="person-retirement" value={form.retirementNote} onChange={(e) => updateForm('retirementNote', e.target.value)} />
+        </div>
+        <div className="field">
+          <label htmlFor="person-email">Email</label>
+          <input id="person-email" type="text" value={form.email} onChange={(e) => updateForm('email', e.target.value)} />
+        </div>
+        <div className="field">
+          <label htmlFor="person-extra-events">Доп. события</label>
+          <textarea id="person-extra-events" rows={3} value={form.extraEvents} onChange={(e) => updateForm('extraEvents', e.target.value)} />
         </div>
         <div className="field">
           <label htmlFor="person-biography">Заметки</label>

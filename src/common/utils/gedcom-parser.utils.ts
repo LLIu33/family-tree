@@ -6,6 +6,37 @@ export class GedcomParserUtils {
   private static readonly ID_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   private static readonly ID_SEPARATOR = "_";
 
+  private static readonly EN_MONTHS: Record<string, number> = {
+    JAN: 0,
+    FEB: 1,
+    MAR: 2,
+    APR: 3,
+    MAY: 4,
+    JUN: 5,
+    JUL: 6,
+    AUG: 7,
+    SEP: 8,
+    OCT: 9,
+    NOV: 10,
+    DEC: 11,
+  };
+
+  /** Russian month stems → 0-based month index (MyHeritage / localized GEDCOM). */
+  private static readonly RU_MONTHS: Array<{ stem: string; month: number }> = [
+    { stem: "янв", month: 0 },
+    { stem: "фев", month: 1 },
+    { stem: "мар", month: 2 },
+    { stem: "апр", month: 3 },
+    { stem: "ма", month: 4 }, // май / мая
+    { stem: "июн", month: 5 },
+    { stem: "июл", month: 6 },
+    { stem: "авг", month: 7 },
+    { stem: "сен", month: 8 }, // сен / сент
+    { stem: "окт", month: 9 },
+    { stem: "ноя", month: 10 },
+    { stem: "дек", month: 11 },
+  ];
+
   /**
    * Generates a GEDCOM-compatible ID with optional prefix
    * @param entityType Optional entity type prefix (e.g., 'INDI', 'FAM')
@@ -74,63 +105,86 @@ export class GedcomParserUtils {
   }
 
   /**
-   * Normalizes GEDCOM date strings to ISO format
-   * @param gedcomDate GEDCOM date string (e.g., "1 JAN 1990")
-   * @returns ISO date string or null if invalid
+   * Normalizes GEDCOM date strings to ISO calendar day (YYYY-MM-DD).
+   * Supports English months, Russian abbreviations, DD.MM.YYYY, and ABT/EST/….
    */
   static normalizeGedcomDate(gedcomDate: string): string | null {
     if (!gedcomDate) return null;
 
     try {
-      const months: Record<string, number> = {
-        JAN: 0,
-        FEB: 1,
-        MAR: 2,
-        APR: 3,
-        MAY: 4,
-        JUN: 5,
-        JUL: 6,
-        AUG: 7,
-        SEP: 8,
-        OCT: 9,
-        NOV: 10,
-        DEC: 11,
-      };
+      let raw = gedcomDate.trim();
+      if (!raw) return null;
 
-      // Handle different GEDCOM date formats (UTC calendar day — avoid local TZ shift)
-      const parts = gedcomDate.trim().split(/\s+/);
+      // Strip leading modifiers; take first date of a BET … AND … range.
+      raw = raw.replace(
+        /^(ABT|ABOUT|CIR|CIRCA|EST|CAL|BEF|AFT|FROM|TO)\s+/i,
+        ""
+      );
+      const bet = raw.match(/^BET\s+(.+?)\s+AND\s+/i);
+      if (bet) {
+        raw = bet[1].trim();
+      }
+
+      // DD.MM.YYYY / D.M.YYYY (do not treat as year-only via parseInt)
+      const dotted = raw.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+      if (dotted) {
+        return this.utcDay(
+          parseInt(dotted[3], 10),
+          parseInt(dotted[2], 10) - 1,
+          parseInt(dotted[1], 10)
+        );
+      }
+
+      const parts = raw.split(/\s+/).filter(Boolean);
       if (parts.length === 3) {
-        // Format: "1 JAN 1990"
         const day = parseInt(parts[0], 10);
-        const month = months[parts[1].toUpperCase()];
+        const month = this.monthIndex(parts[1]);
         const year = parseInt(parts[2], 10);
-
-        if (isNaN(day)) return null;
-        if (month === undefined) return null;
-        if (isNaN(year)) return null;
-
-        return new Date(Date.UTC(year, month, day)).toISOString().split("T")[0];
-      } else if (parts.length === 2) {
-        // Format: "JAN 1990"
-        const month = months[parts[0].toUpperCase()];
+        if (isNaN(day) || month === undefined || isNaN(year)) return null;
+        return this.utcDay(year, month, day);
+      }
+      if (parts.length === 2) {
+        const month = this.monthIndex(parts[0]);
         const year = parseInt(parts[1], 10);
-
-        if (month === undefined) return null;
-        if (isNaN(year)) return null;
-
-        return new Date(Date.UTC(year, month, 1)).toISOString().split("T")[0];
-      } else if (parts.length === 1) {
-        // Format: "1990"
+        if (month === undefined || isNaN(year)) return null;
+        return this.utcDay(year, month, 1);
+      }
+      if (parts.length === 1) {
+        // Strict year-only — reject values with punctuation (e.g. 07.10.1957)
+        if (!/^\d{1,4}$/.test(parts[0])) return null;
         const year = parseInt(parts[0], 10);
         if (isNaN(year)) return null;
-
-        return new Date(Date.UTC(year, 0, 1)).toISOString().split("T")[0];
+        return this.utcDay(year, 0, 1);
       }
-    } catch (e) {
+    } catch {
       return null;
     }
 
     return null;
+  }
+
+  private static monthIndex(token: string): number | undefined {
+    const cleaned = token.replace(/\./g, "").trim();
+    const en = this.EN_MONTHS[cleaned.toUpperCase()];
+    if (en !== undefined) return en;
+
+    const lower = cleaned.toLowerCase();
+    for (const { stem, month } of this.RU_MONTHS) {
+      if (lower.startsWith(stem)) return month;
+    }
+    return undefined;
+  }
+
+  private static utcDay(
+    year: number,
+    monthIndex: number,
+    day: number
+  ): string | null {
+    if (monthIndex < 0 || monthIndex > 11 || day < 1 || day > 31) return null;
+    const iso = new Date(Date.UTC(year, monthIndex, day))
+      .toISOString()
+      .split("T")[0];
+    return iso;
   }
 
   /**

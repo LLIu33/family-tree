@@ -13,21 +13,22 @@ export function ImportPage() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     if (!file) {
-      setError('Choose a .ged file first')
+      setError('Сначала выберите файл .ged')
       return
     }
     setError(null)
     setMessage(null)
     setPending(true)
     try {
-      const result = await importGedcom(file)
-      const summary =
-        result && typeof result === 'object'
-          ? JSON.stringify(result).slice(0, 180)
-          : 'Import finished'
-      setMessage(`Import succeeded. ${summary}${summary.length >= 180 ? '…' : ''}`)
+      const result = (await importGedcom(file)) as {
+        individuals?: number
+        families?: number
+      }
+      const people = result?.individuals ?? 0
+      const families = result?.families ?? 0
+      setMessage(`Импорт завершён: людей ${people}, семей ${families}.`)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Import failed')
+      setError(err instanceof ApiError ? err.message : 'Импорт не удался')
     } finally {
       setPending(false)
     }
@@ -37,16 +38,16 @@ export function ImportPage() {
     <div className="app-shell">
       <AppNav />
       <main className="page fade-in">
-        <p className="eyebrow">Bring records home</p>
-        <h1 className="brand">Import GEDCOM</h1>
+        <p className="eyebrow">Импорт</p>
+        <h1 className="brand">GEDCOM</h1>
         <p className="lede">
-          Upload a genealogy file. We send it as multipart form data with
-          source=web.
+          Загрузите файл генеалогии (.ged). Данные попадут в ваше текущее
+          древо.
         </p>
 
         <form className="import-panel panel" onSubmit={onSubmit}>
           <div className="field">
-            <label htmlFor="gedcom">GEDCOM file</label>
+            <label htmlFor="gedcom">Файл GEDCOM</label>
             <input
               id="gedcom"
               type="file"
@@ -56,13 +57,13 @@ export function ImportPage() {
           </div>
           {file && (
             <p className="muted file-name">
-              Selected: <strong>{file.name}</strong>
+              Выбран: <strong>{file.name}</strong>
             </p>
           )}
           {error && <p className="error">{error}</p>}
           {message && <p className="success">{message}</p>}
           <button className="btn" type="submit" disabled={pending || !file}>
-            {pending ? 'Uploading…' : 'Upload & import'}
+            {pending ? 'Загружаем…' : 'Импортировать'}
           </button>
         </form>
       </main>

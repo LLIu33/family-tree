@@ -21,6 +21,12 @@ export class Individual {
   @Field({ nullable: true })
   middleName?: string;
 
+  @Field({ nullable: true })
+  namePrefix?: string;
+
+  @Field({ nullable: true })
+  marriedName?: string;
+
   @Field()
   sex: Sex | string;
 
@@ -37,10 +43,25 @@ export class Individual {
   deathPlace?: string;
 
   @Field({ nullable: true })
+  deathCause?: string;
+
+  @Field({ nullable: true })
+  burialPlace?: string;
+
+  @Field({ nullable: true })
   occupation?: string;
 
   @Field({ nullable: true })
+  retirementNote?: string;
+
+  @Field({ nullable: true })
+  email?: string;
+
+  @Field({ nullable: true })
   biography?: string;
+
+  @Field({ nullable: true })
+  extraEvents?: string;
 
   @Field()
   createdAt: Date;
@@ -70,6 +91,8 @@ export class Individual {
     individual.firstName = properties.firstName as string;
     individual.lastName = properties.lastName as string;
     individual.middleName = properties.middleName as string | undefined;
+    individual.namePrefix = properties.namePrefix as string | undefined;
+    individual.marriedName = properties.marriedName as string | undefined;
     individual.sex = properties.sex as string;
     individual.birthDate = properties.birthDate
       ? new Date(properties.birthDate as string)
@@ -79,8 +102,13 @@ export class Individual {
       : undefined;
     individual.birthPlace = properties.birthPlace as string | undefined;
     individual.deathPlace = properties.deathPlace as string | undefined;
+    individual.deathCause = properties.deathCause as string | undefined;
+    individual.burialPlace = properties.burialPlace as string | undefined;
     individual.occupation = properties.occupation as string | undefined;
+    individual.retirementNote = properties.retirementNote as string | undefined;
+    individual.email = properties.email as string | undefined;
     individual.biography = properties.biography as string | undefined;
+    individual.extraEvents = properties.extraEvents as string | undefined;
     individual.createdAt = properties.createdAt
       ? new Date(properties.createdAt as string)
       : new Date();

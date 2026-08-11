@@ -50,8 +50,15 @@ export class FamilyTreeService {
         deathDate: $deathDate,
         birthPlace: $birthPlace,
         deathPlace: $deathPlace,
+        deathCause: $deathCause,
+        burialPlace: $burialPlace,
         occupation: $occupation,
+        retirementNote: $retirementNote,
+        email: $email,
+        namePrefix: $namePrefix,
+        marriedName: $marriedName,
         biography: $biography,
+        extraEvents: $extraEvents,
         createdAt: datetime()
       })
       RETURN i
@@ -125,9 +132,17 @@ export class FamilyTreeService {
     assign("sex", dto.sex);
     assign("birthDate", dto.birthDate);
     assign("deathDate", dto.deathDate);
-    assign("birthPlace", dto.birthPlace);
-    assign("deathPlace", dto.deathPlace);
-    assign("biography", dto.biography);
+  assign("birthPlace", dto.birthPlace);
+  assign("deathPlace", dto.deathPlace);
+  assign("deathCause", dto.deathCause);
+  assign("burialPlace", dto.burialPlace);
+  assign("occupation", dto.occupation);
+  assign("retirementNote", dto.retirementNote);
+  assign("email", dto.email);
+  assign("namePrefix", dto.namePrefix);
+  assign("marriedName", dto.marriedName);
+  assign("extraEvents", dto.extraEvents);
+  assign("biography", dto.biography);
 
     if (sets.length === 1) {
       throw new BadRequestException("No fields to update");

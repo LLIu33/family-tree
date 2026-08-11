@@ -101,4 +101,171 @@ describe("GedcomParserService", () => {
       birthPlace: "Таганрог, Ростовская область, Россия",
     });
   });
+
+  it("imports OCCU/NOTE and non-English birth dates", async () => {
+    const neo4j = {
+      executeTransaction: jest.fn().mockResolvedValue([]),
+    };
+    const events = {
+      createEventQuery: jest.fn().mockResolvedValue({
+        query: "RETURN 1",
+        params: {},
+      }),
+    };
+
+    const service = new GedcomParserService(
+      neo4j as unknown as Neo4jService,
+      events as unknown as EventService
+    );
+
+    const gedcom = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I500095@ INDI
+1 NAME Игорь /Гречко/
+2 GIVN Игорь
+2 SURN Гречко
+1 SEX M
+1 BIRT
+2 DATE 16 сент. 1955
+1 OCCU Инженер
+1 NOTE <p>Предположительно умер</p>
+0 @I500096@ INDI
+1 NAME Любовь Ивановна //
+2 GIVN Любовь Ивановна
+1 SEX F
+1 BIRT
+2 DATE 07.10.1957
+0 @I500011@ INDI
+1 NAME Лидия /Мокроусова/
+1 SEX F
+1 DEAT Y
+2 DATE ABT 2002
+2 PLAC Рига
+0 TRLR
+`;
+
+    await service.parseAndImport("tree-1", gedcom);
+    const queries = neo4j.executeTransaction.mock.calls[0][0] as Array<{
+      params?: { id?: string; properties?: Record<string, unknown> };
+    }>;
+    const byId = (id: string) =>
+      queries.find((q) => q.params?.id === id)?.params?.properties;
+
+    expect(byId("I500095")).toMatchObject({
+      birthDate: "1955-09-16T00:00:00.000Z",
+      occupation: "Инженер",
+      biography: "Предположительно умер",
+    });
+    expect(byId("I500096")).toMatchObject({
+      birthDate: "1957-10-07T00:00:00.000Z",
+    });
+    expect(byId("I500011")).toMatchObject({
+      deathDate: "2002-01-01T00:00:00.000Z",
+      deathPlace: "Рига",
+    });
+  });
+
+  it("imports married name, email, burial, cause, EVEN, RETI", async () => {
+    const neo4j = {
+      executeTransaction: jest.fn().mockResolvedValue([]),
+    };
+    const events = {
+      createEventQuery: jest.fn().mockResolvedValue({
+        query: "RETURN 1",
+        params: {},
+      }),
+    };
+
+    const service = new GedcomParserService(
+      neo4j as unknown as Neo4jService,
+      events as unknown as EventService
+    );
+
+    const gedcom = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 NAME Виктория /Ткаченко/
+2 GIVN Виктория
+2 SURN Ткаченко
+2 _MARNM Гречко
+2 NPFX капитан
+1 SEX F
+1 DEAT Y
+2 DATE 24 JUL 2023
+2 PLAC Таганрог
+2 CAUS Естественная смерть
+1 BURI
+2 PLAC Николаевское кладбище
+1 RESI
+2 EMAIL tashana@@hotbox.ru
+1 RESI
+2 EMAIL other@@mail.ru
+1 EVEN звание: полковник
+2 TYPE Military Service
+1 RETI Подполковник полиции в отставке
+2 DATE 2018 год
+0 TRLR
+`;
+
+    await service.parseAndImport("tree-1", gedcom);
+    const queries = neo4j.executeTransaction.mock.calls[0][0] as Array<{
+      params?: { id?: string; properties?: Record<string, unknown> };
+    }>;
+    const props = queries.find((q) => q.params?.id === "I1")?.params
+      ?.properties;
+
+    expect(props).toMatchObject({
+      marriedName: "Гречко",
+      namePrefix: "капитан",
+      deathCause: "Естественная смерть",
+      burialPlace: "Николаевское кладбище",
+      email: "tashana@hotbox.ru; other@mail.ru",
+      extraEvents: "Military Service: звание: полковник",
+      retirementNote: "Подполковник полиции в отставке (2018 год)",
+    });
+  });
+
+  it("uses _MARNM as lastName when surname is empty", async () => {
+    const neo4j = {
+      executeTransaction: jest.fn().mockResolvedValue([]),
+    };
+    const events = {
+      createEventQuery: jest.fn().mockResolvedValue({
+        query: "RETURN 1",
+        params: {},
+      }),
+    };
+
+    const service = new GedcomParserService(
+      neo4j as unknown as Neo4jService,
+      events as unknown as EventService
+    );
+
+    const gedcom = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I500096@ INDI
+1 NAME Любовь Ивановна //
+2 GIVN Любовь Ивановна
+2 _MARNM Гречко
+1 SEX F
+0 TRLR
+`;
+
+    await service.parseAndImport("tree-1", gedcom);
+    const queries = neo4j.executeTransaction.mock.calls[0][0] as Array<{
+      params?: { id?: string; properties?: Record<string, unknown> };
+    }>;
+    const props = queries.find((q) => q.params?.id === "I500096")?.params
+      ?.properties;
+
+    expect(props).toMatchObject({
+      firstName: "Любовь",
+      middleName: "Ивановна",
+      lastName: "Гречко",
+      marriedName: "Гречко",
+    });
+  });
 });

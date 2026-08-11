@@ -43,8 +43,15 @@ export interface IndividualSummary {
 export interface IndividualDetail extends IndividualNode {
   birthPlace?: string
   deathPlace?: string
+  deathCause?: string
+  burialPlace?: string
   biography?: string
   occupation?: string
+  retirementNote?: string
+  email?: string
+  namePrefix?: string
+  marriedName?: string
+  extraEvents?: string
   relatives?: {
     parents: IndividualSummary[]
     spouses: IndividualSummary[]
@@ -60,6 +67,14 @@ export interface UpdateIndividualInput {
   deathDate?: string | null
   birthPlace?: string | null
   deathPlace?: string | null
+  deathCause?: string | null
+  burialPlace?: string | null
+  occupation?: string | null
+  retirementNote?: string | null
+  email?: string | null
+  namePrefix?: string | null
+  marriedName?: string | null
+  extraEvents?: string | null
   biography?: string | null
 }
 
@@ -167,6 +182,11 @@ async function request<T>(
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
     headers,
+  }).catch(() => {
+    throw new ApiError(
+      0,
+      `Не удалось связаться с API (${API_URL}). Проверьте, что сервер запущен.`,
+    )
   })
 
   if (!res.ok) {

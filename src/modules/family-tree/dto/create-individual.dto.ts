@@ -1,4 +1,4 @@
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
   IsString,
   IsNotEmpty,
@@ -91,6 +91,48 @@ export class CreateIndividualDto {
   @IsString()
   @MaxLength(100)
   occupation?: string;
+
+  @ApiPropertyOptional({ description: "Name prefix (e.g. military rank)" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  namePrefix?: string;
+
+  @ApiPropertyOptional({ description: "Married / alternate surname" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  marriedName?: string;
+
+  @ApiPropertyOptional({ description: "Cause of death" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  deathCause?: string;
+
+  @ApiPropertyOptional({ description: "Burial place" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  burialPlace?: string;
+
+  @ApiPropertyOptional({ description: "Email address" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  email?: string;
+
+  @ApiPropertyOptional({ description: "Retirement note" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  retirementNote?: string;
+
+  @ApiPropertyOptional({ description: "Additional GEDCOM EVEN lines" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  extraEvents?: string;
 
   @ApiProperty({
     description: "Notes / additional information",

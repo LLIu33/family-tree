@@ -13,8 +13,10 @@ import {
   Query,
   UploadedFile,
   NotFoundException,
+  BadRequestException,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
+import { memoryStorage } from "multer";
 import { FamilyTreeService } from "../services/family-tree.service";
 import { MediaService } from "../services/media.service";
 import { GedcomParserService } from "../services/gedcom-parser.service";
@@ -205,17 +207,25 @@ export class FamilyTreeController {
   @Post("import/gedcom")
   @ApiOperation({ summary: "Import family tree from GEDCOM file" })
   @ApiConsumes("multipart/form-data")
-  @UseInterceptors(FileInterceptor("file"))
+  @UseInterceptors(
+    FileInterceptor("file", {
+      storage: memoryStorage(),
+      limits: { fileSize: 20 * 1024 * 1024 },
+    })
+  )
   async importGedcom(
     @CurrentUser() user: AuthUser,
     @UploadedFile() file: Express.Multer.File,
     @Body() importGedcomDto: ImportGedcomDto
   ) {
+    if (!file?.buffer?.length) {
+      throw new BadRequestException("GEDCOM file is required");
+    }
     const gedcomText = file.buffer.toString("utf-8");
     return this.gedcomParserService.parseAndImport(
       user.treeId,
       gedcomText,
-      importGedcomDto.source || "unknown"
+      importGedcomDto.source || "web"
     );
   }
 
