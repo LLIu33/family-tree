@@ -19,6 +19,7 @@ import { FamilyTreeService } from "../services/family-tree.service";
 import { MediaService } from "../services/media.service";
 import { GedcomParserService } from "../services/gedcom-parser.service";
 import {
+  AddChildDto,
   CreateIndividualDto,
   CreateFamilyDto,
   CreateRelationshipDto,
@@ -96,6 +97,18 @@ export class FamilyTreeController {
       throw new NotFoundException(`Individual ${id} not found`);
     }
     return individual;
+  }
+
+  @Post("individuals/:id/children")
+  @ApiOperation({
+    summary: "Add a child to this individual (and unique spouse)",
+  })
+  async addChild(
+    @CurrentUser() user: AuthUser,
+    @Param("id") id: string,
+    @Body() dto: AddChildDto
+  ) {
+    return this.familyTreeService.addChild(user.treeId, id, dto);
   }
 
   @Patch("individuals/:id")

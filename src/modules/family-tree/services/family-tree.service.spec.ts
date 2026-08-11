@@ -208,3 +208,98 @@ describe("FamilyTreeService getIndividual", () => {
     expect(result?.relatives.children).toEqual([child]);
   });
 });
+
+describe("FamilyTreeService addChild", () => {
+  let service: FamilyTreeService;
+  let neo4j: { read: jest.Mock; write: jest.Mock; executeTransaction: jest.Mock };
+
+  beforeEach(() => {
+    neo4j = {
+      read: jest.fn(),
+      write: jest.fn(),
+      executeTransaction: jest.fn(),
+    };
+    service = new FamilyTreeService(neo4j as unknown as Neo4jService);
+  });
+
+  it("creates child and links only selected parent when no spouse", async () => {
+    const child = { id: "C1", firstName: "Child", lastName: "Test", sex: "U" };
+    jest.spyOn(service, "getIndividual").mockResolvedValue({
+      id: "P1",
+      firstName: "Parent",
+      lastName: "Test",
+      sex: Sex.MALE,
+    } as any);
+    jest.spyOn(service, "createIndividual").mockResolvedValue(child as any);
+    const link = jest
+      .spyOn(service as any, "linkParentChild")
+      .mockResolvedValue(undefined);
+    jest.spyOn(service as any, "listSpouseIds").mockResolvedValue([]);
+
+    const result = await service.addChild("tree-1", "P1", {
+      firstName: "Child",
+      lastName: "Test",
+      sex: Sex.UNKNOWN,
+    });
+
+    expect(link).toHaveBeenCalledTimes(1);
+    expect(link).toHaveBeenCalledWith("tree-1", "P1", "C1");
+    expect(result.linkedParentIds).toEqual(["P1"]);
+    expect(result.child).toEqual(child);
+  });
+
+  it("also links the unique spouse", async () => {
+    jest.spyOn(service, "getIndividual").mockResolvedValue({
+      id: "P1",
+      sex: Sex.MALE,
+    } as any);
+    jest.spyOn(service, "createIndividual").mockResolvedValue({
+      id: "C1",
+    } as any);
+    const link = jest
+      .spyOn(service as any, "linkParentChild")
+      .mockResolvedValue(undefined);
+    jest.spyOn(service as any, "listSpouseIds").mockResolvedValue(["S1"]);
+
+    const result = await service.addChild("tree-1", "P1", {
+      firstName: "Child",
+      lastName: "Test",
+      sex: Sex.UNKNOWN,
+    });
+
+    expect(link).toHaveBeenCalledTimes(2);
+    expect(link).toHaveBeenCalledWith("tree-1", "S1", "C1");
+    expect(result.linkedParentIds).toEqual(["P1", "S1"]);
+  });
+
+  it("does not auto-link when multiple spouses", async () => {
+    jest.spyOn(service, "getIndividual").mockResolvedValue({ id: "P1" } as any);
+    jest.spyOn(service, "createIndividual").mockResolvedValue({ id: "C1" } as any);
+    const link = jest
+      .spyOn(service as any, "linkParentChild")
+      .mockResolvedValue(undefined);
+    jest
+      .spyOn(service as any, "listSpouseIds")
+      .mockResolvedValue(["S1", "S2"]);
+
+    const result = await service.addChild("tree-1", "P1", {
+      firstName: "Child",
+      lastName: "Test",
+      sex: Sex.UNKNOWN,
+    });
+
+    expect(link).toHaveBeenCalledTimes(1);
+    expect(result.linkedParentIds).toEqual(["P1"]);
+  });
+
+  it("throws when parent missing", async () => {
+    jest.spyOn(service, "getIndividual").mockResolvedValue(null);
+    await expect(
+      service.addChild("tree-1", "missing", {
+        firstName: "Child",
+        lastName: "Test",
+        sex: Sex.UNKNOWN,
+      })
+    ).rejects.toThrow(NotFoundException);
+  });
+});

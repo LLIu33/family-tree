@@ -93,6 +93,15 @@ export class CreateIndividualDto {
   occupation?: string;
 
   @ApiProperty({
+    description: "Notes / additional information",
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  biography?: string;
+
+  @ApiProperty({
     example: "I12345",
     description: "GEDCOM identifier",
     required: false,

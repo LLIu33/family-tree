@@ -1,3 +1,4 @@
+export * from "./add-child.dto";
 export * from "./create-family.dto";
 export * from "./create-individual.dto";
 export * from "./create-media.dto";

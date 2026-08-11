@@ -7,6 +7,7 @@ import {
 import { Neo4jService } from "../../../neo4j/neo4j.service";
 import { Individual, Family } from "../entities";
 import {
+  AddChildDto,
   CreateIndividualDto,
   CreateFamilyDto,
   CreateRelationshipDto,
@@ -50,6 +51,7 @@ export class FamilyTreeService {
         birthPlace: $birthPlace,
         deathPlace: $deathPlace,
         occupation: $occupation,
+        biography: $biography,
         createdAt: datetime()
       })
       RETURN i
@@ -64,6 +66,39 @@ export class FamilyTreeService {
 
     const result = await this.neo4jService.write(query, params);
     return Neo4jResultUtils.getFirstResult<Individual>(result.records)!;
+  }
+
+  async addChild(
+    treeId: string,
+    parentId: string,
+    dto: AddChildDto
+  ): Promise<{ child: Individual; linkedParentIds: string[] }> {
+    const parent = await this.getIndividual(treeId, parentId);
+    if (!parent) {
+      throw new NotFoundException(`Individual ${parentId} not found`);
+    }
+
+    const child = await this.createIndividual(treeId, {
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+      sex: dto.sex,
+      birthDate: dto.birthDate,
+      deathDate: dto.deathDate,
+      birthPlace: dto.birthPlace,
+      deathPlace: dto.deathPlace,
+      biography: dto.biography,
+    } as CreateIndividualDto);
+
+    const linkedParentIds = [parentId];
+    await this.linkParentChild(treeId, parentId, child.id);
+
+    const spouses = await this.listSpouseIds(treeId, parentId);
+    if (spouses.length === 1) {
+      await this.linkParentChild(treeId, spouses[0], child.id);
+      linkedParentIds.push(spouses[0]);
+    }
+
+    return { child, linkedParentIds };
   }
 
   async updateIndividual(
@@ -702,6 +737,22 @@ export class FamilyTreeService {
 
   private spouseRoleForSex(sex?: string): "HUSBAND" | "WIFE" {
     return sex === Sex.FEMALE || sex === "F" ? "WIFE" : "HUSBAND";
+  }
+
+  private async listSpouseIds(
+    treeId: string,
+    individualId: string
+  ): Promise<string[]> {
+    const result = await this.neo4jService.read(
+      `
+      MATCH (i:Individual {id: $individualId, treeId: $treeId})-[:HUSBAND|WIFE]->(f:Family)
+            <-[:HUSBAND|WIFE]-(s:Individual {treeId: $treeId})
+      WHERE (f.treeId = $treeId OR f.treeId IS NULL) AND s.id <> i.id
+      RETURN DISTINCT s.id AS id
+      `,
+      { treeId, individualId }
+    );
+    return result.records.map((r) => r.get("id") as string);
   }
 
   private async linkParentChild(
