@@ -146,7 +146,8 @@ export function PersonPanel({
 
     try {
       const result = await addChild(personId, toChildInput(childForm))
-      if (result.linkedParentIds.length === 1 && spouseCount > 1) {
+      const singleParentOnly = result.linkedParentIds.length === 1 && spouseCount > 1
+      if (singleParentOnly) {
         setInfoMessage(
           'Ребёнок привязан только к выбранному родителю (несколько супругов)',
         )
@@ -155,7 +156,9 @@ export function PersonPanel({
       const fresh = await getIndividual(personId)
       setDetail(fresh)
       setForm(buildPersonForm(fresh))
-      onOpenPerson(result.child.id)
+      if (!singleParentOnly) {
+        onOpenPerson(result.child.id)
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Не удалось добавить ребёнка')
     } finally {
