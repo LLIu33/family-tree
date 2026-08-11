@@ -43,7 +43,7 @@ describe("GedcomParserService", () => {
 0 TRLR
 `;
 
-    const result = await service.parseAndImport(gedcom);
+    const result = await service.parseAndImport("tree-1", gedcom);
 
     expect(result).toEqual({ individuals: 3, families: 1 });
     expect(neo4j.executeTransaction).toHaveBeenCalled();
@@ -86,7 +86,7 @@ describe("GedcomParserService", () => {
 0 TRLR
 `;
 
-    await service.parseAndImport(gedcom);
+    await service.parseAndImport("tree-1", gedcom);
 
     const queries = neo4j.executeTransaction.mock.calls[0][0] as Array<{
       query: string;

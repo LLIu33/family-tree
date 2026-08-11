@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { FamilyTreeModule } from "./modules/family-tree/family-tree.module";
+import { AuthModule } from "./modules/auth/auth.module";
 import { GraphQLModule } from "@nestjs/graphql";
 import { ApolloDriver, ApolloDriverConfig } from "@nestjs/apollo";
 import { Neo4jModule } from "./neo4j/neo4j.module";
@@ -10,13 +11,14 @@ import {
   neo4jConfig,
   storageConfig,
   swaggerConfig,
+  jwtConfig,
 } from "./config/configuration";
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, neo4jConfig, storageConfig, swaggerConfig],
+      load: [appConfig, neo4jConfig, storageConfig, swaggerConfig, jwtConfig],
     }),
     Neo4jModule.forRootAsync({
       imports: [ConfigModule],
@@ -52,6 +54,7 @@ import {
       autoSchemaFile: true,
       playground: true,
     }),
+    AuthModule,
     FamilyTreeModule,
   ],
 })

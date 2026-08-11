@@ -8,9 +8,10 @@ import { MediaController } from "./controllers/media.controller";
 import { MediaService } from "./services/media.service";
 import { StorageService } from "./services/storage.service";
 import { Neo4jModule } from "../../neo4j/neo4j.module";
+import { AuthModule } from "../auth/auth.module";
 
 @Module({
-  imports: [Neo4jModule],
+  imports: [Neo4jModule, AuthModule],
   controllers: [FamilyTreeController, MediaController],
   providers: [
     FamilyTreeService,

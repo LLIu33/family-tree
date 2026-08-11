@@ -35,6 +35,7 @@ export class GedcomParserService {
   ) {}
 
   async parseAndImport(
+    treeId: string,
     gedcomText: string,
     source: string = "unknown"
   ): Promise<{ individuals: number; families: number }> {
@@ -53,7 +54,7 @@ export class GedcomParserService {
         });
       }
 
-      return await this.importToNeo4j(individuals, families);
+      return await this.importToNeo4j(treeId, individuals, families);
     } catch (error) {
       if (error instanceof GEDCOMValidationError) {
         throw error;
@@ -157,10 +158,14 @@ export class GedcomParserService {
     const xref =
       this.cleanXref(record.xref) ||
       GedcomParserUtils.generateGedcomId("INDI");
-    const name =
-      record.children.find((child) => child.tag === "NAME")?.value ||
-      "Unknown /Unknown/";
-    const [firstName, lastName] = this.parseName(name);
+    const nameRecord = record.children.find((child) => child.tag === "NAME");
+    const givn = nameRecord?.children.find((c) => c.tag === "GIVN")?.value;
+    const surn = nameRecord?.children.find((c) => c.tag === "SURN")?.value;
+    const [parsedFirst, parsedLast] = this.parseName(
+      nameRecord?.value || "Unknown /Unknown/"
+    );
+    const firstName = (givn || parsedFirst || "").trim() || "Unknown";
+    const lastName = (surn || parsedLast || "").trim() || "Unknown";
     const birth = this.mergeEventFacts(
       record.children.filter((child) => child.tag === "BIRT")
     );
@@ -249,6 +254,7 @@ export class GedcomParserService {
   }
 
   private async importToNeo4j(
+    treeId: string,
     individuals: Individual[],
     families: FamilyImportRecord[]
   ): Promise<{ individuals: number; families: number }> {
@@ -258,13 +264,15 @@ export class GedcomParserService {
     for (const ind of individuals) {
       queries.push({
         query: `
-          MERGE (i:Individual {id: $id})
+          MERGE (i:Individual {id: $id, treeId: $treeId})
           SET i += $properties
         `,
         params: {
           id: ind.id,
+          treeId,
           properties: {
             gedcomId: ind.gedcomId,
+            treeId,
             firstName: ind.firstName,
             lastName: ind.lastName,
             sex: ind.sex,
@@ -279,6 +287,7 @@ export class GedcomParserService {
       if (ind.birthDate) {
         queries.push(
           await this.eventService.createEventQuery(
+            treeId,
             ind.id,
             EventType.BIRTH,
             ind.birthDate.toISOString(),
@@ -289,6 +298,7 @@ export class GedcomParserService {
       if (ind.deathDate) {
         queries.push(
           await this.eventService.createEventQuery(
+            treeId,
             ind.id,
             EventType.DEATH,
             ind.deathDate.toISOString(),
@@ -301,13 +311,15 @@ export class GedcomParserService {
     for (const fam of families) {
       queries.push({
         query: `
-          MERGE (f:Family {id: $id})
+          MERGE (f:Family {id: $id, treeId: $treeId})
           SET f += $properties
         `,
         params: {
           id: fam.id,
+          treeId,
           properties: {
             gedcomId: fam.gedcomId,
+            treeId,
             marriageDate: fam.marriageDate || null,
             divorceDate: fam.divorceDate || null,
           },
@@ -317,33 +329,33 @@ export class GedcomParserService {
       if (fam.husbandId) {
         queries.push({
           query: `
-            MATCH (i:Individual {id: $indId})
-            MATCH (f:Family {id: $famId})
+            MATCH (i:Individual {id: $indId, treeId: $treeId})
+            MATCH (f:Family {id: $famId, treeId: $treeId})
             MERGE (i)-[:HUSBAND]->(f)
           `,
-          params: { indId: fam.husbandId, famId: fam.id },
+          params: { indId: fam.husbandId, famId: fam.id, treeId },
         });
       }
 
       if (fam.wifeId) {
         queries.push({
           query: `
-            MATCH (i:Individual {id: $indId})
-            MATCH (f:Family {id: $famId})
+            MATCH (i:Individual {id: $indId, treeId: $treeId})
+            MATCH (f:Family {id: $famId, treeId: $treeId})
             MERGE (i)-[:WIFE]->(f)
           `,
-          params: { indId: fam.wifeId, famId: fam.id },
+          params: { indId: fam.wifeId, famId: fam.id, treeId },
         });
       }
 
       for (const childId of fam.childrenIds || []) {
         queries.push({
           query: `
-            MATCH (i:Individual {id: $indId})
-            MATCH (f:Family {id: $famId})
+            MATCH (i:Individual {id: $indId, treeId: $treeId})
+            MATCH (f:Family {id: $famId, treeId: $treeId})
             MERGE (i)-[:CHILD]->(f)
           `,
-          params: { indId: childId, famId: fam.id },
+          params: { indId: childId, famId: fam.id, treeId },
         });
       }
     }

@@ -6,6 +6,7 @@ import {
   Param,
   UseInterceptors,
   UseFilters,
+  UseGuards,
   ParseIntPipe,
   DefaultValuePipe,
   Query,
@@ -29,9 +30,15 @@ import {
   ApiResponse,
   ApiConsumes,
   ApiBody,
+  ApiBearerAuth,
 } from "@nestjs/swagger";
+import { JwtAuthGuard } from "../../auth/guards/jwt-auth.guard";
+import { CurrentUser } from "../../auth/decorators/current-user.decorator";
+import { AuthUser } from "../../auth/interfaces/auth.interface";
 
 @ApiTags("Family Tree")
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller("family-tree")
 @UseFilters(Neo4jErrorFilter, GEDCOMValidationFilter)
 export class FamilyTreeController {
@@ -45,56 +52,89 @@ export class FamilyTreeController {
   @ApiOperation({ summary: "Create a new individual" })
   @ApiResponse({ status: 201, description: "Individual created" })
   @ApiResponse({ status: 400, description: "Bad request" })
-  async createIndividual(@Body() createIndividualDto: CreateIndividualDto) {
-    return this.familyTreeService.createIndividual(createIndividualDto);
+  async createIndividual(
+    @CurrentUser() user: AuthUser,
+    @Body() createIndividualDto: CreateIndividualDto
+  ) {
+    return this.familyTreeService.createIndividual(
+      user.treeId,
+      createIndividualDto
+    );
+  }
+
+  @Get("individuals")
+  @ApiOperation({ summary: "Search individuals in the current tree" })
+  async searchIndividuals(
+    @CurrentUser() user: AuthUser,
+    @Query("q") q = "",
+    @Query("limit", new DefaultValuePipe(20), ParseIntPipe) limit: number
+  ) {
+    return this.familyTreeService.searchIndividuals(user.treeId, q, limit);
+  }
+
+  @Get("graph")
+  @ApiOperation({
+    summary: "Full family graph for the current tree (largest component)",
+  })
+  async getFullGraph(@CurrentUser() user: AuthUser) {
+    return this.familyTreeService.getFullGraph(user.treeId);
   }
 
   @Get("individuals/:id")
   @ApiOperation({ summary: "Get individual by ID" })
   @ApiResponse({ status: 200, description: "Individual found" })
   @ApiResponse({ status: 404, description: "Individual not found" })
-  async getIndividual(@Param("id") id: string) {
-    return this.familyTreeService.getIndividual(id);
+  async getIndividual(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    return this.familyTreeService.getIndividual(user.treeId, id);
   }
 
   @Get("individuals/:id/ancestors")
   @ApiOperation({ summary: "Get ancestors of an individual" })
   async getAncestors(
+    @CurrentUser() user: AuthUser,
     @Param("id") id: string,
     @Query("generations", new DefaultValuePipe(3), ParseIntPipe)
     generations: number
   ) {
-    return this.familyTreeService.getAncestors(id, generations);
+    return this.familyTreeService.getAncestors(user.treeId, id, generations);
   }
 
   @Get("individuals/:id/descendants")
   @ApiOperation({ summary: "Get descendants of an individual" })
   async getDescendants(
+    @CurrentUser() user: AuthUser,
     @Param("id") id: string,
     @Query("generations", new DefaultValuePipe(3), ParseIntPipe)
     generations: number
   ) {
-    return this.familyTreeService.getDescendants(id, generations);
+    return this.familyTreeService.getDescendants(user.treeId, id, generations);
   }
 
   @Post("families")
   @ApiOperation({ summary: "Create a new family" })
-  async createFamily(@Body() createFamilyDto: CreateFamilyDto) {
-    return this.familyTreeService.createFamily(createFamilyDto);
+  async createFamily(
+    @CurrentUser() user: AuthUser,
+    @Body() createFamilyDto: CreateFamilyDto
+  ) {
+    return this.familyTreeService.createFamily(user.treeId, createFamilyDto);
   }
 
   @Get("families/:id")
   @ApiOperation({ summary: "Get family by ID" })
-  async getFamily(@Param("id") id: string) {
-    return this.familyTreeService.getFamily(id);
+  async getFamily(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    return this.familyTreeService.getFamily(user.treeId, id);
   }
 
   @Post("relationships")
   @ApiOperation({ summary: "Create relationship between individuals" })
   async createRelationship(
+    @CurrentUser() user: AuthUser,
     @Body() createRelationshipDto: CreateRelationshipDto
   ) {
-    return this.familyTreeService.createRelationship(createRelationshipDto);
+    return this.familyTreeService.createRelationship(
+      user.treeId,
+      createRelationshipDto
+    );
   }
 
   @Post("individuals/:id/media")
@@ -116,12 +156,13 @@ export class FamilyTreeController {
   })
   @UseInterceptors(FileInterceptor("file"))
   async uploadMedia(
+    @CurrentUser() user: AuthUser,
     @Param("id") individualId: string,
     @UploadedFile() file: Express.Multer.File,
     @Body("description") description?: string,
     @Body("dateTaken") dateTaken?: Date
   ) {
-    return this.mediaService.createMedia(file, {
+    return this.mediaService.createMedia(user.treeId, file, {
       attachedToId: individualId,
       description,
       dateTaken: dateTaken?.toISOString(),
@@ -133,19 +174,25 @@ export class FamilyTreeController {
   @ApiConsumes("multipart/form-data")
   @UseInterceptors(FileInterceptor("file"))
   async importGedcom(
+    @CurrentUser() user: AuthUser,
     @UploadedFile() file: Express.Multer.File,
-    @Body() _importGedcomDto: ImportGedcomDto
+    @Body() importGedcomDto: ImportGedcomDto
   ) {
     const gedcomText = file.buffer.toString("utf-8");
-    return this.gedcomParserService.parseAndImport(gedcomText);
+    return this.gedcomParserService.parseAndImport(
+      user.treeId,
+      gedcomText,
+      importGedcomDto.source || "unknown"
+    );
   }
 
   @Get("visualize/:rootId")
   @ApiOperation({ summary: "Visualize family tree from root individual" })
   async visualizeTree(
+    @CurrentUser() user: AuthUser,
     @Param("rootId") rootId: string,
     @Query("depth", new DefaultValuePipe(3), ParseIntPipe) depth: number
   ) {
-    return this.familyTreeService.visualizeTree(rootId, depth);
+    return this.familyTreeService.visualizeTree(user.treeId, rootId, depth);
   }
 }

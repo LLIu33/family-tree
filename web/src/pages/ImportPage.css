@@ -1,0 +1,13 @@
+.import-panel {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  max-width: 420px;
+}
+
+.file-name {
+  margin: 0 0 1rem;
+}
+
+.import-panel .btn {
+  width: 100%;
+}

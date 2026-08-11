@@ -11,6 +11,11 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
 
+  app.enableCors({
+    origin: true,
+    credentials: true,
+  });
+
   app.use(json({ limit: "10mb" }));
   app.use(urlencoded({ extended: true, limit: "10mb" }));
 
@@ -28,6 +33,7 @@ async function bootstrap() {
       .setTitle(swagger.title)
       .setDescription(swagger.description)
       .setVersion(swagger.version)
+      .addBearerAuth()
       .build();
     const document = SwaggerModule.createDocument(app, documentBuilder);
     SwaggerModule.setup(swagger.path, app, document);

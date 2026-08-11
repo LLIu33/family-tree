@@ -1,13 +1,15 @@
-# Family Tree API
+# Родник
 
-Genealogy management API built with NestJS and Neo4j. There is no frontend in this repository — clients talk to REST and GraphQL.
+Семейное древо: NestJS + Neo4j API и веб-приложение (`web/`). Личные деревья с JWT-авторизацией.
 
 ## Features
 
-- CRUD for individuals and families
+- Auth (register/login) — each user gets a personal **Tree**
+- CRUD for individuals and families (scoped by `treeId`)
 - Relationships via a **Family hub** model (`HUSBAND` / `WIFE` / `CHILD`)
-- Ancestors / descendants / tree JSON for visualization clients
-- Built-in GEDCOM import (no broken `gedcom-ts` dependency)
+- Ancestors / descendants / tree JSON for visualization
+- Built-in GEDCOM import
+- Web UI: login, home, tree canvas, GEDCOM import
 - Media upload (REST → S3)
 
 ## Graph model
@@ -66,6 +68,19 @@ npm run start:dev
 ```
 
 Use `NEO4J_HOST=localhost` when the API runs on the host.
+
+### Web UI
+
+```bash
+cd web
+cp .env.example .env   # optional; defaults to http://localhost:3000
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173` — register a user, import a GEDCOM, open the tree canvas with a root individual id (e.g. `I500001`).
+
+Protected API routes need `Authorization: Bearer <token>` (Swagger Authorize button).
 
 ### URLs
 

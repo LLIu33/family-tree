@@ -9,6 +9,7 @@ export class EventService {
   constructor(private readonly neo4jService: Neo4jService) {}
 
   async createEventQuery(
+    treeId: string,
     individualId: string,
     type: EventType,
     date?: string,
@@ -17,9 +18,10 @@ export class EventService {
     const eventId = `event_${Date.now()}`;
     return {
       query: `
-        MATCH (i:Individual {id: $individualId})
+        MATCH (i:Individual {id: $individualId, treeId: $treeId})
         CREATE (e:Event {
           id: $eventId,
+          treeId: $treeId,
           type: $type,
           date: $date,
           place: $place,
@@ -30,6 +32,7 @@ export class EventService {
       `,
       params: {
         eventId,
+        treeId,
         individualId,
         type,
         date: date || null,

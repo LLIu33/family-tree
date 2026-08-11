@@ -19,5 +19,7 @@
     "esModuleInterop": true,
     "allowJs": true,
     "strict": false
-  }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "web"]
 }

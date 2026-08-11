@@ -1,0 +1,61 @@
+.tree-scroll {
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(250, 252, 248, 0.55);
+  box-shadow: var(--shadow);
+  max-height: min(70vh, 720px);
+}
+
+.tree-svg {
+  display: block;
+  min-width: 100%;
+}
+
+.tree-edge {
+  stroke: rgba(44, 95, 78, 0.4);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.tree-edge.spouse {
+  stroke: rgba(44, 95, 78, 0.55);
+  stroke-dasharray: 5 4;
+}
+
+.tree-node {
+  height: 100%;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.82);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--ink);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  cursor: default;
+}
+
+.tree-node strong {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  line-height: 1.2;
+}
+
+.tree-node span {
+  color: var(--ink-muted);
+  font-size: 0.78rem;
+}
+
+.tree-node:hover {
+  transform: translateY(-2px);
+  border-color: rgba(44, 95, 78, 0.45);
+  box-shadow: 0 10px 24px rgba(26, 36, 32, 0.12);
+}
+
+.tree-node.is-root {
+  border-color: var(--accent);
+  background: rgba(44, 95, 78, 0.08);
+}

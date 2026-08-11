@@ -11,6 +11,7 @@ export class MediaService {
   ) {}
 
   async createMedia(
+    treeId: string,
     file: Express.Multer.File,
     createMediaDto: CreateMediaDto
   ): Promise<Record<string, unknown>> {
@@ -23,6 +24,7 @@ export class MediaService {
     const mediaId = `media_${Date.now()}`;
     const mediaData = {
       id: mediaId,
+      treeId,
       type: mediaType,
       url,
       thumbnailUrl,
@@ -34,33 +36,37 @@ export class MediaService {
     await this.neo4jService.write(
       `CREATE (m:Media $mediaData)
              WITH m
-             MATCH (n {id: $attachedToId})
+             MATCH (n:Individual {id: $attachedToId, treeId: $treeId})
              CREATE (n)-[:HAS_MEDIA]->(m)
              RETURN m`,
       {
         mediaData,
         attachedToId: createMediaDto.attachedToId,
+        treeId,
       }
     );
 
     return mediaData;
   }
 
-  async getMediaForIndividual(individualId: string): Promise<unknown[]> {
+  async getMediaForIndividual(
+    treeId: string,
+    individualId: string
+  ): Promise<unknown[]> {
     const result = await this.neo4jService.read(
-      `MATCH (i:Individual {id: $individualId})-[:HAS_MEDIA]->(m:Media)
+      `MATCH (i:Individual {id: $individualId, treeId: $treeId})-[:HAS_MEDIA]->(m:Media)
              RETURN m ORDER BY m.dateTaken DESC`,
-      { individualId }
+      { individualId, treeId }
     );
 
     return result.records.map((record) => record.get("m").properties);
   }
 
-  async deleteMedia(mediaId: string): Promise<boolean> {
+  async deleteMedia(treeId: string, mediaId: string): Promise<boolean> {
     const result = await this.neo4jService.read(
-      `MATCH (m:Media {id: $mediaId})
+      `MATCH (m:Media {id: $mediaId, treeId: $treeId})
              RETURN m.url AS url, m.thumbnailUrl AS thumbnailUrl`,
-      { mediaId }
+      { mediaId, treeId }
     );
 
     if (result.records.length === 0) {
@@ -75,11 +81,12 @@ export class MediaService {
     }
 
     await this.neo4jService.write(
-      `MATCH (m:Media {id: $mediaId})
+      `MATCH (m:Media {id: $mediaId, treeId: $treeId})
              OPTIONAL MATCH (m)-[r]-()
              DELETE r, m`,
-      { mediaId }
+      { mediaId, treeId }
     );
+
     return true;
   }
 }

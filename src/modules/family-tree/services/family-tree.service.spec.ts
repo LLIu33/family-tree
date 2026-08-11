@@ -41,7 +41,7 @@ describe("FamilyTreeService relationships (Family hub)", () => {
       .mockResolvedValueOnce({ records: [] }) // child family
       .mockResolvedValueOnce({ records: [] }); // parent spouse family
 
-    await service.createRelationship({
+    await service.createRelationship("tree-1", {
       fromIndividualId: "p1",
       toIndividualId: "c1",
       relationshipType: RelationType.PARENT,
@@ -69,7 +69,7 @@ describe("FamilyTreeService relationships (Family hub)", () => {
       .mockResolvedValueOnce({ records: [] }) // a family
       .mockResolvedValueOnce({ records: [] }); // b family
 
-    await service.createRelationship({
+    await service.createRelationship("tree-1", {
       fromIndividualId: "a1",
       toIndividualId: "b1",
       relationshipType: RelationType.SPOUSE,
@@ -88,7 +88,7 @@ describe("FamilyTreeService relationships (Family hub)", () => {
 
   it("rejects unsupported relationship types", async () => {
     await expect(
-      service.createRelationship({
+      service.createRelationship("tree-1", {
         fromIndividualId: "a1",
         toIndividualId: "b1",
         relationshipType: RelationType.GODPARENT,
