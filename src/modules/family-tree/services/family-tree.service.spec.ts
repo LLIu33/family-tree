@@ -231,7 +231,10 @@ describe("FamilyTreeService addChild", () => {
       sex: Sex.MALE,
     } as any);
     jest.spyOn(service, "createIndividual").mockResolvedValue(child as any);
-    const link = jest
+    const soleLink = jest
+      .spyOn(service as any, "linkSoleParentChild")
+      .mockResolvedValue(undefined);
+    const sharedLink = jest
       .spyOn(service as any, "linkParentChild")
       .mockResolvedValue(undefined);
     jest.spyOn(service as any, "listSpouseIds").mockResolvedValue([]);
@@ -242,8 +245,9 @@ describe("FamilyTreeService addChild", () => {
       sex: Sex.UNKNOWN,
     });
 
-    expect(link).toHaveBeenCalledTimes(1);
-    expect(link).toHaveBeenCalledWith("tree-1", "P1", "C1");
+    expect(soleLink).toHaveBeenCalledTimes(1);
+    expect(soleLink).toHaveBeenCalledWith("tree-1", "P1", "C1");
+    expect(sharedLink).not.toHaveBeenCalled();
     expect(result.linkedParentIds).toEqual(["P1"]);
     expect(result.child).toEqual(child);
   });
@@ -256,7 +260,10 @@ describe("FamilyTreeService addChild", () => {
     jest.spyOn(service, "createIndividual").mockResolvedValue({
       id: "C1",
     } as any);
-    const link = jest
+    const soleLink = jest
+      .spyOn(service as any, "linkSoleParentChild")
+      .mockResolvedValue(undefined);
+    const sharedLink = jest
       .spyOn(service as any, "linkParentChild")
       .mockResolvedValue(undefined);
     jest.spyOn(service as any, "listSpouseIds").mockResolvedValue(["S1"]);
@@ -267,15 +274,20 @@ describe("FamilyTreeService addChild", () => {
       sex: Sex.UNKNOWN,
     });
 
-    expect(link).toHaveBeenCalledTimes(2);
-    expect(link).toHaveBeenCalledWith("tree-1", "S1", "C1");
+    expect(sharedLink).toHaveBeenCalledTimes(2);
+    expect(sharedLink).toHaveBeenNthCalledWith(1, "tree-1", "P1", "C1");
+    expect(sharedLink).toHaveBeenNthCalledWith(2, "tree-1", "S1", "C1");
+    expect(soleLink).not.toHaveBeenCalled();
     expect(result.linkedParentIds).toEqual(["P1", "S1"]);
   });
 
-  it("does not auto-link when multiple spouses", async () => {
+  it("uses sole-parent linking when multiple spouses", async () => {
     jest.spyOn(service, "getIndividual").mockResolvedValue({ id: "P1" } as any);
     jest.spyOn(service, "createIndividual").mockResolvedValue({ id: "C1" } as any);
-    const link = jest
+    const soleLink = jest
+      .spyOn(service as any, "linkSoleParentChild")
+      .mockResolvedValue(undefined);
+    const sharedLink = jest
       .spyOn(service as any, "linkParentChild")
       .mockResolvedValue(undefined);
     jest
@@ -288,7 +300,9 @@ describe("FamilyTreeService addChild", () => {
       sex: Sex.UNKNOWN,
     });
 
-    expect(link).toHaveBeenCalledTimes(1);
+    expect(soleLink).toHaveBeenCalledTimes(1);
+    expect(soleLink).toHaveBeenCalledWith("tree-1", "P1", "C1");
+    expect(sharedLink).not.toHaveBeenCalled();
     expect(result.linkedParentIds).toEqual(["P1"]);
   });
 

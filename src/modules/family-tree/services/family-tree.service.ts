@@ -89,10 +89,14 @@ export class FamilyTreeService {
       biography: dto.biography,
     } as CreateIndividualDto);
 
-    const linkedParentIds = [parentId];
-    await this.linkParentChild(treeId, parentId, child.id);
-
     const spouses = await this.listSpouseIds(treeId, parentId);
+    const linkedParentIds = [parentId];
+    if (spouses.length === 1) {
+      await this.linkParentChild(treeId, parentId, child.id);
+    } else {
+      await this.linkSoleParentChild(treeId, parentId, child.id);
+    }
+
     if (spouses.length === 1) {
       await this.linkParentChild(treeId, spouses[0], child.id);
       linkedParentIds.push(spouses[0]);
@@ -803,6 +807,54 @@ export class FamilyTreeService {
     }
 
     const familyId = GedcomParserUtils.generateGedcomId("FAM");
+    await this.neo4jService.executeTransaction([
+      {
+        query: `
+          CREATE (f:Family {
+            id: $familyId,
+            treeId: $treeId,
+            gedcomId: $familyId,
+            createdAt: datetime()
+          })
+        `,
+        params: { familyId, treeId },
+      },
+      {
+        query: `
+          MATCH (parent:Individual {id: $parentId, treeId: $treeId})
+          MATCH (child:Individual {id: $childId, treeId: $treeId})
+          MATCH (f:Family {id: $familyId, treeId: $treeId})
+          MERGE (parent)-[:${role}]->(f)
+          MERGE (child)-[:CHILD]->(f)
+        `,
+        params: { parentId, childId, familyId, treeId },
+      },
+    ]);
+  }
+
+  private async linkSoleParentChild(
+    treeId: string,
+    parentId: string,
+    childId: string
+  ): Promise<void> {
+    const parent = await this.getIndividual(treeId, parentId);
+    const child = await this.getIndividual(treeId, childId);
+    if (!parent || !child) {
+      throw new NotFoundException("Parent or child individual not found");
+    }
+
+    const existingFamilyId = await this.findSharedParentChildFamily(
+      treeId,
+      parentId,
+      childId
+    );
+    if (existingFamilyId) {
+      return;
+    }
+
+    const role = this.spouseRoleForSex(parent.sex as string);
+    const familyId = GedcomParserUtils.generateGedcomId("FAM");
+
     await this.neo4jService.executeTransaction([
       {
         query: `

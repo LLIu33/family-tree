@@ -156,6 +156,8 @@ export function PersonPanel({
       const fresh = await getIndividual(personId)
       setDetail(fresh)
       setForm(buildPersonForm(fresh))
+      setChildForm(EMPTY_CHILD)
+      setIsChildOpen(false)
       if (!singleParentOnly) {
         onOpenPerson(result.child.id)
       }
