@@ -1,0 +1,47 @@
+# Render Blueprint — API (Docker) + static web
+# Docs: https://render.com/docs/blueprint-spec
+#
+# Before deploy: create Neo4j Aura Free and put URI/user/password into Render env
+# (Dashboard → Environment). Do not commit secrets.
+
+services:
+  - type: web
+    name: rodnik-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SERVE_WEB
+        value: "false"
+      - key: SWAGGER_ENABLED
+        value: "false"
+      - key: STORAGE_TYPE
+        value: local
+      - key: JWT_SECRET
+        generateValue: true
+      - key: NEO4J_URI
+        sync: false
+      - key: NEO4J_USERNAME
+        sync: false
+      - key: NEO4J_PASSWORD
+        sync: false
+      - key: NEO4J_DATABASE
+        value: neo4j
+
+  - type: web
+    name: rodnik-web
+    runtime: static
+    plan: free
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    rootDir: web
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          name: rodnik-api
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL

@@ -1,7 +1,14 @@
-const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(
-  /\/$/,
-  '',
-) || 'http://localhost:3000'
+const configuredApiUrl = (
+  import.meta.env.VITE_API_URL as string | undefined
+)?.replace(/\/$/, '')
+
+/** Dev → localhost API; prod same-origin unless VITE_API_URL is set (Render split). */
+const API_URL =
+  configuredApiUrl !== undefined && configuredApiUrl !== ''
+    ? configuredApiUrl
+    : import.meta.env.DEV
+      ? 'http://localhost:3000'
+      : ''
 
 const TOKEN_KEY = 'rodnik_token'
 const TREE_ID_KEY = 'rodnik_treeId'

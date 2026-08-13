@@ -34,6 +34,8 @@ Do not use `CHILD_OF`, `SPOUSE`, `FAMILY_MEMBER`, or `HAS_MEMBER` as the source 
 
 ## Setup
 
+See also **[docs/deploy/DEMO.md](docs/deploy/DEMO.md)** for Render + Aura Free and Oracle Always Free demo hosting.
+
 ### Docker (recommended)
 
 1. Create env and align Neo4j password with `NEO4J_AUTH` in `docker-compose.yml` (default: `neo4j` / `your_password`):

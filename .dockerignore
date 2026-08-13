@@ -1,12 +1,17 @@
-node_modules
-dist
+# Build context root — keep image small
 .git
+.superpowers
+.cursor
+**/node_modules
+**/dist
+web/dist
+uploads
+*.md
 .env
+.env.*
+!.env.example
+Dockerfile.dev
+docker-entrypoint.dev.sh
+coverage
 *.log
 .DS_Store
-.idea
-.vscode
-uploads
-fixtures
-coverage
-*.md

@@ -24,6 +24,10 @@ import {
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService): Neo4jConfig => ({
+        uri:
+          config.get<string>("neo4j.uri") ||
+          config.get<string>("NEO4J_URI") ||
+          undefined,
         scheme:
           config.get<string>("neo4j.scheme") ||
           config.get<string>("NEO4J_SCHEME") ||
