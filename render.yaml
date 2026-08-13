@@ -10,6 +10,8 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile.api
     dockerContext: .
+    # Explicit — do not fall back to `npm start` / Nest CLI
+    dockerCommand: node --max-old-space-size=460 --optimize-for-size dist/main.js
     plan: free
     healthCheckPath: /health
     envVars:

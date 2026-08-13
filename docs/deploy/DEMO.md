@@ -13,9 +13,10 @@ API — только REST (GraphQL удалён).
 
 1. Aura Free → URI / user / password  
 2. Render Blueprint → этот репо  
-3. API: **Dockerfile Path = `Dockerfile.api`**  
+3. API: **Environment = Docker**, **Dockerfile Path = `Dockerfile.api`**  
+   Не выбирай Node — иначе Render делает `npm start` / `nest start` и падает по OOM.  
 4. Env API: `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`, `STORAGE_TYPE=local`, `SERVE_WEB=false`  
-   (heap задаётся в `Dockerfile.api` через `node --max-old-space-size=460` — **удали** `NODE_OPTIONS` из Render env, если добавлял)  
+   Удали `NODE_OPTIONS`, если добавлял. Start Command оставь пустым (берётся из Dockerfile).  
 5. Web static: Root Directory = `web`, `VITE_API_URL=<api url>`  
 6. Проверка: `GET /health`
 
