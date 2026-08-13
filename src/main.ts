@@ -4,8 +4,8 @@ import { join } from "path";
 import { NestFactory } from "@nestjs/core";
 import { Logger, ValidationPipe } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { json, urlencoded, static as expressStatic } from "express";
-import type { Request, Response, NextFunction } from "express";
+import { NestExpressApplication } from "@nestjs/platform-express";
+import type { NextFunction, Request, Response } from "express";
 import { AppModule } from "./app.module";
 import { SwaggerConfig } from "./config/swagger.config";
 
@@ -19,22 +19,14 @@ function isApiPath(path: string): boolean {
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: ["error", "warn", "log"],
   });
   const configService = app.get(ConfigService);
-  const http = app.getHttpAdapter().getInstance();
 
   app.enableCors({
     origin: true,
     credentials: true,
-  });
-
-  app.use(json({ limit: "2mb" }));
-  app.use(urlencoded({ extended: true, limit: "2mb" }));
-
-  http.get("/health", (_req: Request, res: Response) => {
-    res.status(200).json({ ok: true });
   });
 
   app.useGlobalPipes(
@@ -63,19 +55,19 @@ async function bootstrap() {
     process.env.SERVE_WEB === "1";
   const webRoot = join(__dirname, "..", "public");
   if (serveWeb && existsSync(webRoot)) {
-    app.use(expressStatic(webRoot));
-    http.get("*", (req: Request, res: Response, next: NextFunction) => {
+    app.useStaticAssets(webRoot);
+    app.use((req: Request, res: Response, next: NextFunction) => {
       if (req.method !== "GET" || isApiPath(req.path)) {
         next();
         return;
       }
-      res.sendFile(join(webRoot, "index.html"), (err) => {
-        if (err) next();
+      res.sendFile(join(webRoot, "index.html"), (err?: Error) => {
+        if (err) next(err);
       });
     });
   }
 
-  const port = configService.get<number>("PORT") || 3000;
+  const port = Number(process.env.PORT) || configService.get<number>("PORT") || 3000;
   await app.listen(port, "0.0.0.0");
   Logger.log(`Listening on 0.0.0.0:${port}`, "Bootstrap");
 }
