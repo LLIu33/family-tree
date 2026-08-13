@@ -15,7 +15,7 @@ class GedcomImportResult {
 export class FamilyTreeResolver {
   @Query(() => String)
   async helloFamilyTree() {
-    return "Родник API работает!";
+    return "Древо API работает!";
   }
 }
 

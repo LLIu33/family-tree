@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import type { IndividualNode, TreeRelationship } from '../api'
+import { PersonAvatar } from './PersonAvatar'
 import './TreeCanvas.css'
 
 interface Props {
@@ -16,8 +17,8 @@ interface LaidOutNode extends IndividualNode {
   generation: number
 }
 
-const CARD_W = 168
-const CARD_H = 88
+const CARD_W = 176
+const CARD_H = 96
 const GAP_X = 36
 const GAP_Y = 130
 const PAD = 48
@@ -383,8 +384,11 @@ export function TreeCanvas({
                   }
                 }}
               >
-                <strong>{displayName(n)}</strong>
-                <span>{years || '—'}</span>
+                <PersonAvatar person={n} size="sm" />
+                <div className="tree-node__text">
+                  <strong>{displayName(n)}</strong>
+                  <span>{years || '—'}</span>
+                </div>
               </div>
             </foreignObject>
           )

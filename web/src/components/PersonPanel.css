@@ -19,6 +19,13 @@
   margin-bottom: 0.35rem;
 }
 
+.person-panel__heading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
 .person-panel__header h2,
 .person-panel__section h3 {
   margin: 0;
@@ -55,8 +62,9 @@
 
 .person-panel__relative {
   display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.65rem;
   width: 100%;
   padding: 0.7rem 0.8rem;
   border: 1px solid var(--line);
@@ -72,7 +80,15 @@
   box-shadow: 0 10px 24px rgba(26, 36, 32, 0.08);
 }
 
-.person-panel__relative span,
+.person-panel__relative-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  text-align: left;
+}
+
+.person-panel__relative-text span,
 .person-panel__empty,
 .person-panel__note {
   font-size: 0.92rem;

@@ -11,7 +11,7 @@ export interface SwaggerConfig {
 
 export const swaggerConfig = registerAs("swagger", (): SwaggerConfig => ({
   enabled: process.env.SWAGGER_ENABLED === "true",
-  title: process.env.SWAGGER_TITLE || "Родник API",
+  title: process.env.SWAGGER_TITLE || "Древо API",
   description:
     process.env.SWAGGER_DESCRIPTION ||
     "API for managing genealogical data and family trees",
@@ -22,7 +22,7 @@ export const swaggerConfig = registerAs("swagger", (): SwaggerConfig => ({
 export const SWAGGER_CONFIG: Omit<OpenAPIObject, "paths"> = {
   openapi: "3.0.0",
   info: {
-    title: "Родник API",
+    title: "Древо API",
     version: "1.0",
     description: "API для управления генеалогическими данными",
   },

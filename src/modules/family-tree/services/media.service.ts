@@ -7,18 +7,18 @@ import { CreateMediaDto, MediaType } from "../dto/create-media.dto";
 export class MediaService {
   constructor(
     private readonly neo4jService: Neo4jService,
-    private readonly storageService: StorageService
+    private readonly storageService: StorageService,
   ) {}
 
   async createMedia(
     treeId: string,
     file: Express.Multer.File,
-    createMediaDto: CreateMediaDto
+    createMediaDto: CreateMediaDto,
   ): Promise<Record<string, unknown>> {
     const mediaType = createMediaDto.type || MediaType.PHOTO;
     const { url, thumbnailUrl } = await this.storageService.uploadFile(
       file,
-      mediaType
+      mediaType,
     );
 
     const mediaId = `media_${Date.now()}`;
@@ -43,7 +43,7 @@ export class MediaService {
         mediaData,
         attachedToId: createMediaDto.attachedToId,
         treeId,
-      }
+      },
     );
 
     return mediaData;
@@ -51,12 +51,12 @@ export class MediaService {
 
   async getMediaForIndividual(
     treeId: string,
-    individualId: string
+    individualId: string,
   ): Promise<unknown[]> {
     const result = await this.neo4jService.read(
       `MATCH (i:Individual {id: $individualId, treeId: $treeId})-[:HAS_MEDIA]->(m:Media)
              RETURN m ORDER BY m.dateTaken DESC`,
-      { individualId, treeId }
+      { individualId, treeId },
     );
 
     return result.records.map((record) => record.get("m").properties);
@@ -66,7 +66,7 @@ export class MediaService {
     const result = await this.neo4jService.read(
       `MATCH (m:Media {id: $mediaId, treeId: $treeId})
              RETURN m.url AS url, m.thumbnailUrl AS thumbnailUrl`,
-      { mediaId, treeId }
+      { mediaId, treeId },
     );
 
     if (result.records.length === 0) {
@@ -84,7 +84,7 @@ export class MediaService {
       `MATCH (m:Media {id: $mediaId, treeId: $treeId})
              OPTIONAL MATCH (m)-[r]-()
              DELETE r, m`,
-      { mediaId, treeId }
+      { mediaId, treeId },
     );
 
     return true;

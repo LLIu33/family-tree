@@ -2,9 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { v4 as uuidV4 } from "uuid";
 import sharp from "sharp";
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const AWS = require("aws-sdk");
+import AWS from "aws-sdk";
 
 @Injectable()
 export class StorageService {

@@ -8,9 +8,7 @@ import {
   MaxLength,
   MinLength,
   IsArray,
-  ValidateNested,
 } from "class-validator";
-import { Type } from "class-transformer";
 import { Sex } from "../enums/sex.enum";
 
 export class CreateIndividualDto {

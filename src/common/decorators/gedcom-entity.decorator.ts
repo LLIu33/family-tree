@@ -57,18 +57,13 @@ function validateGedcomId(id: string, type: string) {
     throw new BadRequestException(`${type} ID is required`);
   }
 
-  const typePatterns = {
-    individual: /^I\d+$/,
-    family: /^F\d+$/,
-    event: /^E\d+$/,
-    media: /^M\d+$/,
-  };
-
-  //   if (!typePatterns[type].test(id)) {
-  //     throw new BadRequestException(
-  //       `Invalid ${type} ID format. Expected pattern: ${typePatterns[
-  //         type
-  //       ].toString()}`
-  //     );
-  //   }
+  // const typePatterns: Record<string, RegExp> = {
+  //   individual: /^I\d+$/,
+  //   family: /^F\d+$/,
+  //   event: /^E\d+$/,
+  //   media: /^M\d+$/,
+  // };
+  // if (!typePatterns[type]?.test(id)) {
+  //   throw new BadRequestException(`Invalid ${type} ID format`);
+  // }
 }

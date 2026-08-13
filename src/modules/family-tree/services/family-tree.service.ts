@@ -32,7 +32,7 @@ export class FamilyTreeService {
 
   async createIndividual(
     treeId: string,
-    createIndividualDto: CreateIndividualDto
+    createIndividualDto: CreateIndividualDto,
   ): Promise<Individual> {
     const individualId =
       createIndividualDto.gedcomId ||
@@ -78,7 +78,7 @@ export class FamilyTreeService {
   async addChild(
     treeId: string,
     parentId: string,
-    dto: AddChildDto
+    dto: AddChildDto,
   ): Promise<{ child: Individual; linkedParentIds: string[] }> {
     const parent = await this.getIndividual(treeId, parentId);
     if (!parent) {
@@ -115,7 +115,7 @@ export class FamilyTreeService {
   async updateIndividual(
     treeId: string,
     id: string,
-    dto: UpdateIndividualDto
+    dto: UpdateIndividualDto,
   ): Promise<Individual> {
     const sets: string[] = ["i.updatedAt = datetime()"];
     const params: Record<string, unknown> = { treeId, id };
@@ -132,17 +132,17 @@ export class FamilyTreeService {
     assign("sex", dto.sex);
     assign("birthDate", dto.birthDate);
     assign("deathDate", dto.deathDate);
-  assign("birthPlace", dto.birthPlace);
-  assign("deathPlace", dto.deathPlace);
-  assign("deathCause", dto.deathCause);
-  assign("burialPlace", dto.burialPlace);
-  assign("occupation", dto.occupation);
-  assign("retirementNote", dto.retirementNote);
-  assign("email", dto.email);
-  assign("namePrefix", dto.namePrefix);
-  assign("marriedName", dto.marriedName);
-  assign("extraEvents", dto.extraEvents);
-  assign("biography", dto.biography);
+    assign("birthPlace", dto.birthPlace);
+    assign("deathPlace", dto.deathPlace);
+    assign("deathCause", dto.deathCause);
+    assign("burialPlace", dto.burialPlace);
+    assign("occupation", dto.occupation);
+    assign("retirementNote", dto.retirementNote);
+    assign("email", dto.email);
+    assign("namePrefix", dto.namePrefix);
+    assign("marriedName", dto.marriedName);
+    assign("extraEvents", dto.extraEvents);
+    assign("biography", dto.biography);
 
     if (sets.length === 1) {
       throw new BadRequestException("No fields to update");
@@ -154,7 +154,7 @@ export class FamilyTreeService {
     SET ${sets.join(", ")}
     RETURN i
     `,
-      params
+      params,
     );
 
     const updated = Neo4jResultUtils.getFirstResult<Individual>(result.records);
@@ -167,7 +167,7 @@ export class FamilyTreeService {
   async searchIndividuals(
     treeId: string,
     queryText = "",
-    limit = 20
+    limit = 20,
   ): Promise<Individual[]> {
     await this.ensureTreeHasData(treeId);
     const capped = Math.min(Math.max(Number(limit) || 20, 1), 50);
@@ -184,12 +184,12 @@ export class FamilyTreeService {
       ORDER BY i.lastName, i.firstName
       LIMIT ${capped}
       `,
-      { treeId, q }
+      { treeId, q },
     );
 
     return result.records.map(
       (record) =>
-        Neo4jResultUtils.normalizeValue(record.get("i")) as Individual
+        Neo4jResultUtils.normalizeValue(record.get("i")) as Individual,
     );
   }
 
@@ -216,11 +216,11 @@ export class FamilyTreeService {
       RETURN i
       ORDER BY i.lastName, i.firstName, i.id
       `,
-      { treeId }
+      { treeId },
     );
     const allNodes = peopleResult.records.map(
       (record) =>
-        Neo4jResultUtils.normalizeValue(record.get("i")) as Individual
+        Neo4jResultUtils.normalizeValue(record.get("i")) as Individual,
     );
 
     if (allNodes.length === 0) {
@@ -234,7 +234,7 @@ export class FamilyTreeService {
       WHERE f.treeId = $treeId OR f.treeId IS NULL
       RETURN DISTINCT parent.id AS source, child.id AS target, f.id AS familyId
       `,
-      { treeId }
+      { treeId },
     );
 
     const spouseResult = await this.neo4jService.read(
@@ -244,7 +244,7 @@ export class FamilyTreeService {
       WHERE (f.treeId = $treeId OR f.treeId IS NULL) AND a.id < b.id
       RETURN DISTINCT a.id AS source, b.id AS target, f.id AS familyId
       `,
-      { treeId }
+      { treeId },
     );
 
     const allRels: Array<{
@@ -269,13 +269,13 @@ export class FamilyTreeService {
 
     const components = this.connectedComponents(
       allNodes.map((n) => n.id),
-      allRels
+      allRels,
     );
     const primary = components[0] || allNodes.map((n) => n.id);
     const idSet = new Set(primary);
     const nodes = allNodes.filter((n) => idSet.has(n.id));
     const relationships = allRels.filter(
-      (r) => idSet.has(r.source) && idSet.has(r.target)
+      (r) => idSet.has(r.source) && idSet.has(r.target),
     );
 
     // Layout root: oldest generation (no parents in graph). Prefer named people
@@ -283,7 +283,7 @@ export class FamilyTreeService {
     const childIds = new Set(
       relationships
         .filter((r) => r.type === "PARENT_CHILD")
-        .map((r) => r.target)
+        .map((r) => r.target),
     );
     const childCount = new Map<string, number>();
     for (const r of relationships) {
@@ -294,7 +294,9 @@ export class FamilyTreeService {
     const scoreRoot = (n: Individual): number => {
       const named = this.hasDisplayName(n) ? 1_000_000 : 0;
       const kids = childCount.get(n.id) || 0;
-      const birth = n.birthDate ? new Date(n.birthDate).getTime() : Number.MAX_SAFE_INTEGER;
+      const birth = n.birthDate
+        ? new Date(n.birthDate).getTime()
+        : Number.MAX_SAFE_INTEGER;
       // Higher is better: named + more kids; earlier birth as tie-break via negative time.
       return named + kids * 1_000 - birth / 1e13;
     };
@@ -320,7 +322,7 @@ export class FamilyTreeService {
   private async ensureTreeHasData(treeId: string): Promise<void> {
     const owned = await this.neo4jService.read(
       `MATCH (i:Individual {treeId: $treeId}) RETURN count(i) AS c`,
-      { treeId }
+      { treeId },
     );
     const rawCount = owned.records[0]?.get("c");
     const count =
@@ -335,7 +337,7 @@ export class FamilyTreeService {
       WHERE i.treeId IS NULL
       SET i.treeId = $treeId
       `,
-      { treeId }
+      { treeId },
     );
     await this.neo4jService.write(
       `
@@ -343,7 +345,7 @@ export class FamilyTreeService {
       WHERE f.treeId IS NULL
       SET f.treeId = $treeId
       `,
-      { treeId }
+      { treeId },
     );
     await this.neo4jService.write(
       `
@@ -351,13 +353,13 @@ export class FamilyTreeService {
       WHERE e.treeId IS NULL
       SET e.treeId = $treeId
       `,
-      { treeId }
+      { treeId },
     );
   }
 
   private connectedComponents(
     ids: string[],
-    relationships: Array<{ source: string; target: string }>
+    relationships: Array<{ source: string; target: string }>,
   ): string[][] {
     const adj = new Map<string, Set<string>>();
     for (const id of ids) adj.set(id, new Set());
@@ -393,7 +395,7 @@ export class FamilyTreeService {
 
   async getIndividual(
     treeId: string,
-    id: string
+    id: string,
   ): Promise<IndividualDetail | null> {
     const query = `
       MATCH (i:Individual {id: $id, treeId: $treeId})
@@ -407,7 +409,7 @@ export class FamilyTreeService {
 
     const record = result.records[0];
     const individual = Neo4jResultUtils.normalizeValue(
-      record.get("i")
+      record.get("i"),
     ) as IndividualDetail;
     individual.relationships = record
       .get("relationships")
@@ -425,7 +427,7 @@ export class FamilyTreeService {
               <-[:HUSBAND|WIFE]-(p:Individual {treeId: $treeId})
         WHERE f.treeId = $treeId OR f.treeId IS NULL
         RETURN DISTINCT p AS person
-        `
+        `,
       ),
       this.loadRelativeSummaries(
         treeId,
@@ -435,7 +437,7 @@ export class FamilyTreeService {
               <-[:HUSBAND|WIFE]-(s:Individual {treeId: $treeId})
         WHERE (f.treeId = $treeId OR f.treeId IS NULL) AND s.id <> i.id
         RETURN DISTINCT s AS person
-        `
+        `,
       ),
       this.loadRelativeSummaries(
         treeId,
@@ -445,7 +447,7 @@ export class FamilyTreeService {
               <-[:CHILD]-(c:Individual {treeId: $treeId})
         WHERE f.treeId = $treeId OR f.treeId IS NULL
         RETURN DISTINCT c AS person
-        `
+        `,
       ),
     ]);
 
@@ -456,7 +458,7 @@ export class FamilyTreeService {
   private async loadRelativeSummaries(
     treeId: string,
     id: string,
-    query: string
+    query: string,
   ): Promise<IndividualSummary[]> {
     const result = await this.neo4jService.read(query, { treeId, id });
     return result.records
@@ -477,7 +479,10 @@ export class FamilyTreeService {
     };
   }
 
-  async createFamily(treeId: string, createFamilyDto: CreateFamilyDto): Promise<Family> {
+  async createFamily(
+    treeId: string,
+    createFamilyDto: CreateFamilyDto,
+  ): Promise<Family> {
     const familyId =
       createFamilyDto.gedcomId || GedcomParserUtils.generateGedcomId("FAM");
 
@@ -577,7 +582,7 @@ export class FamilyTreeService {
 
   async createRelationship(
     treeId: string,
-    createRelationshipDto: CreateRelationshipDto
+    createRelationshipDto: CreateRelationshipDto,
   ): Promise<boolean> {
     const { fromIndividualId, toIndividualId, relationshipType } =
       createRelationshipDto;
@@ -603,7 +608,7 @@ export class FamilyTreeService {
         return true;
       default:
         throw new BadRequestException(
-          `Unsupported relationship type: ${relationshipType}`
+          `Unsupported relationship type: ${relationshipType}`,
         );
     }
   }
@@ -611,7 +616,7 @@ export class FamilyTreeService {
   async getAncestors(
     treeId: string,
     individualId: string,
-    generations: number = 3
+    generations: number = 3,
   ): Promise<Individual[]> {
     const maxGen = this.clampGenerations(generations);
     const found = new Map<string, Individual>();
@@ -635,7 +640,7 @@ export class FamilyTreeService {
   async getDescendants(
     treeId: string,
     individualId: string,
-    generations: number = 3
+    generations: number = 3,
   ): Promise<Individual[]> {
     const maxGen = this.clampGenerations(generations);
     const found = new Map<string, Individual>();
@@ -659,7 +664,7 @@ export class FamilyTreeService {
   async visualizeTree(
     treeId: string,
     rootId: string,
-    depth: number = 3
+    depth: number = 3,
   ): Promise<{
     nodes: Individual[];
     relationships: Array<{
@@ -688,7 +693,10 @@ export class FamilyTreeService {
     for (let level = 0; level < maxDepth; level++) {
       if (frontier.length === 0) break;
 
-      const familyRows = await this.getFamilyLinksForIndividuals(treeId, frontier);
+      const familyRows = await this.getFamilyLinksForIndividuals(
+        treeId,
+        frontier,
+      );
       const nextFrontier: string[] = [];
 
       for (const row of familyRows) {
@@ -723,7 +731,7 @@ export class FamilyTreeService {
   async findPossibleRelationships(
     treeId: string,
     individualId1: string,
-    individualId2: string
+    individualId2: string,
   ): Promise<{ path: string[]; degree: number; types: string[] }[]> {
     const query = `
       MATCH path = shortestPath(
@@ -760,7 +768,7 @@ export class FamilyTreeService {
 
   private async listSpouseIds(
     treeId: string,
-    individualId: string
+    individualId: string,
   ): Promise<string[]> {
     const result = await this.neo4jService.read(
       `
@@ -769,7 +777,7 @@ export class FamilyTreeService {
       WHERE (f.treeId = $treeId OR f.treeId IS NULL) AND s.id <> i.id
       RETURN DISTINCT s.id AS id
       `,
-      { treeId, individualId }
+      { treeId, individualId },
     );
     return result.records.map((r) => r.get("id") as string);
   }
@@ -777,7 +785,7 @@ export class FamilyTreeService {
   private async linkParentChild(
     treeId: string,
     parentId: string,
-    childId: string
+    childId: string,
   ): Promise<void> {
     const parent = await this.getIndividual(treeId, parentId);
     const child = await this.getIndividual(treeId, childId);
@@ -789,7 +797,7 @@ export class FamilyTreeService {
     const existingFamilyId = await this.findSharedParentChildFamily(
       treeId,
       parentId,
-      childId
+      childId,
     );
     if (existingFamilyId) {
       return;
@@ -803,7 +811,7 @@ export class FamilyTreeService {
           MATCH (f:Family {id: $familyId, treeId: $treeId})
           MERGE (parent)-[:${role}]->(f)
         `,
-        { parentId, familyId: childFamilyId }
+        { parentId, familyId: childFamilyId },
       );
       return;
     }
@@ -816,7 +824,7 @@ export class FamilyTreeService {
           MATCH (f:Family {id: $familyId, treeId: $treeId})
           MERGE (child)-[:CHILD]->(f)
         `,
-        { childId, familyId: parentFamilyId }
+        { childId, familyId: parentFamilyId },
       );
       return;
     }
@@ -850,7 +858,7 @@ export class FamilyTreeService {
   private async linkSoleParentChild(
     treeId: string,
     parentId: string,
-    childId: string
+    childId: string,
   ): Promise<void> {
     const parent = await this.getIndividual(treeId, parentId);
     const child = await this.getIndividual(treeId, childId);
@@ -861,7 +869,7 @@ export class FamilyTreeService {
     const existingFamilyId = await this.findSharedParentChildFamily(
       treeId,
       parentId,
-      childId
+      childId,
     );
     if (existingFamilyId) {
       return;
@@ -895,7 +903,11 @@ export class FamilyTreeService {
     ]);
   }
 
-  private async linkSpouses(treeId: string, aId: string, bId: string): Promise<void> {
+  private async linkSpouses(
+    treeId: string,
+    aId: string,
+    bId: string,
+  ): Promise<void> {
     const a = await this.getIndividual(treeId, aId);
     const b = await this.getIndividual(treeId, bId);
     if (!a || !b) {
@@ -919,7 +931,7 @@ export class FamilyTreeService {
           MATCH (f:Family {id: $familyId, treeId: $treeId})
           MERGE (b)-[:${roleB}]->(f)
         `,
-        { bId, familyId: aFamily, treeId }
+        { bId, familyId: aFamily, treeId },
       );
       return;
     }
@@ -931,7 +943,7 @@ export class FamilyTreeService {
           MATCH (f:Family {id: $familyId, treeId: $treeId})
           MERGE (a)-[:${roleA}]->(f)
         `,
-        { aId, familyId: bFamily, treeId }
+        { aId, familyId: bFamily, treeId },
       );
       return;
     }
@@ -962,7 +974,11 @@ export class FamilyTreeService {
     ]);
   }
 
-  private async linkSiblings(treeId: string, aId: string, bId: string): Promise<void> {
+  private async linkSiblings(
+    treeId: string,
+    aId: string,
+    bId: string,
+  ): Promise<void> {
     const a = await this.getIndividual(treeId, aId);
     const b = await this.getIndividual(treeId, bId);
     if (!a || !b) {
@@ -982,7 +998,7 @@ export class FamilyTreeService {
           MATCH (f:Family {id: $familyId, treeId: $treeId})
           MERGE (b)-[:CHILD]->(f)
         `,
-        { bId, familyId: aFamily, treeId }
+        { bId, familyId: aFamily, treeId },
       );
       return;
     }
@@ -995,7 +1011,7 @@ export class FamilyTreeService {
           MATCH (f:Family {id: $familyId, treeId: $treeId})
           MERGE (a)-[:CHILD]->(f)
         `,
-        { aId, familyId: bFamily, treeId }
+        { aId, familyId: bFamily, treeId },
       );
       return;
     }
@@ -1029,7 +1045,7 @@ export class FamilyTreeService {
   private async findSharedParentChildFamily(
     treeId: string,
     parentId: string,
-    childId: string
+    childId: string,
   ): Promise<string | null> {
     const result = await this.neo4jService.read(
       `
@@ -1038,7 +1054,7 @@ export class FamilyTreeService {
         RETURN f.id AS familyId
         LIMIT 1
       `,
-      { treeId, parentId, childId }
+      { treeId, parentId, childId },
     );
     return result.records[0]?.get("familyId") ?? null;
   }
@@ -1046,7 +1062,7 @@ export class FamilyTreeService {
   private async findSharedSpouseFamily(
     treeId: string,
     aId: string,
-    bId: string
+    bId: string,
   ): Promise<string | null> {
     const result = await this.neo4jService.read(
       `
@@ -1055,7 +1071,7 @@ export class FamilyTreeService {
         RETURN f.id AS familyId
         LIMIT 1
       `,
-      { treeId, aId, bId }
+      { treeId, aId, bId },
     );
     return result.records[0]?.get("familyId") ?? null;
   }
@@ -1063,7 +1079,7 @@ export class FamilyTreeService {
   private async findSharedChildFamily(
     treeId: string,
     aId: string,
-    bId: string
+    bId: string,
   ): Promise<string | null> {
     const result = await this.neo4jService.read(
       `
@@ -1072,64 +1088,79 @@ export class FamilyTreeService {
         RETURN f.id AS familyId
         LIMIT 1
       `,
-      { treeId, aId, bId }
+      { treeId, aId, bId },
     );
     return result.records[0]?.get("familyId") ?? null;
   }
 
-  private async findChildFamilyId(treeId: string, individualId: string): Promise<string | null> {
+  private async findChildFamilyId(
+    treeId: string,
+    individualId: string,
+  ): Promise<string | null> {
     const result = await this.neo4jService.read(
       `
         MATCH (i:Individual {id: $individualId, treeId: $treeId})-[:CHILD]->(f:Family {treeId: $treeId})
         RETURN f.id AS familyId
         LIMIT 1
       `,
-      { treeId, individualId }
+      { treeId, individualId },
     );
     return result.records[0]?.get("familyId") ?? null;
   }
 
-  private async findSpouseFamilyId(treeId: string, individualId: string): Promise<string | null> {
+  private async findSpouseFamilyId(
+    treeId: string,
+    individualId: string,
+  ): Promise<string | null> {
     const result = await this.neo4jService.read(
       `
         MATCH (i:Individual {id: $individualId, treeId: $treeId})-[:HUSBAND|WIFE]->(f:Family {treeId: $treeId})
         RETURN f.id AS familyId
         LIMIT 1
       `,
-      { treeId, individualId }
+      { treeId, individualId },
     );
     return result.records[0]?.get("familyId") ?? null;
   }
 
-  private async getParentsOfMany(treeId: string, ids: string[]): Promise<Individual[]> {
+  private async getParentsOfMany(
+    treeId: string,
+    ids: string[],
+  ): Promise<Individual[]> {
     const result = await this.neo4jService.read(
       `
         MATCH (child:Individual {treeId: $treeId})-[:CHILD]->(:Family {treeId: $treeId})<-[:HUSBAND|WIFE]-(parent:Individual {treeId: $treeId})
         WHERE child.id IN $ids
         RETURN DISTINCT parent
       `,
-      { treeId, ids }
+      { treeId, ids },
     );
     return result.records.map((record) =>
-      Neo4jResultUtils.normalizeValue(record.get("parent"))
+      Neo4jResultUtils.normalizeValue(record.get("parent")),
     );
   }
 
-  private async getChildrenOfMany(treeId: string, ids: string[]): Promise<Individual[]> {
+  private async getChildrenOfMany(
+    treeId: string,
+    ids: string[],
+  ): Promise<Individual[]> {
     const result = await this.neo4jService.read(
       `
         MATCH (parent:Individual {treeId: $treeId})-[:HUSBAND|WIFE]->(:Family {treeId: $treeId})<-[:CHILD]-(child:Individual {treeId: $treeId})
         WHERE parent.id IN $ids
         RETURN DISTINCT child
       `,
-      { treeId, ids }
+      { treeId, ids },
     );
     return result.records.map((record) =>
-      Neo4jResultUtils.normalizeValue(record.get("child"))
+      Neo4jResultUtils.normalizeValue(record.get("child")),
     );
   }
 
-  private async getFamilyLinksForIndividuals(treeId: string, ids: string[]): Promise<
+  private async getFamilyLinksForIndividuals(
+    treeId: string,
+    ids: string[],
+  ): Promise<
     Array<{
       individualId: string;
       familyId: string;
@@ -1148,7 +1179,7 @@ export class FamilyTreeService {
                type(r) AS type,
                collect(DISTINCT member) AS members
       `,
-      { treeId, ids }
+      { treeId, ids },
     );
 
     return result.records.map((record) => ({

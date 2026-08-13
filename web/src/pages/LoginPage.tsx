@@ -55,7 +55,7 @@ export function LoginPage() {
         <header className="login-hero">
           <p className="eyebrow">Семейный архив</p>
           <h1 className="brand brand-hero">
-            Родник
+            Древо
             <span> · семейное древо</span>
           </h1>
           <p className="lede">

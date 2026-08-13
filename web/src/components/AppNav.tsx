@@ -13,7 +13,7 @@ export function AppNav() {
   return (
     <header className="top-nav fade-in">
       <Link to="/" className="brand brand-mark" style={{ textDecoration: 'none', color: 'inherit' }}>
-        Родник
+        Древо
         <span>древо</span>
       </Link>
       <nav>

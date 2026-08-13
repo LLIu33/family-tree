@@ -17,6 +17,7 @@ import {
   type ChildFormState,
   type PersonFormState,
 } from './personPanel.helpers'
+import { PersonAvatar } from './PersonAvatar'
 import './PersonPanel.css'
 
 interface PersonPanelProps {
@@ -47,8 +48,11 @@ function RelativesSection({
               className="person-panel__relative"
               onClick={() => onOpenPerson(person.id)}
             >
-              <strong>{formatPersonName(person)}</strong>
-              <span>{formatYears(person)}</span>
+              <PersonAvatar person={person} size="sm" />
+              <span className="person-panel__relative-text">
+                <strong>{formatPersonName(person)}</strong>
+                <span>{formatYears(person)}</span>
+              </span>
             </button>
           ))}
         </div>
@@ -202,9 +206,15 @@ export function PersonPanel({
   return (
     <aside className="person-panel panel">
       <div className="person-panel__header">
-        <div>
-          <p className="eyebrow">Карточка</p>
-          <h2>{formatPersonName(detail)}</h2>
+        <div className="person-panel__heading">
+          <PersonAvatar
+            person={{ firstName: form.firstName, lastName: form.lastName, sex: form.sex }}
+            size="md"
+          />
+          <div>
+            <p className="eyebrow">Карточка</p>
+            <h2>{formatPersonName(detail)}</h2>
+          </div>
         </div>
         <button type="button" className="btn btn-ghost person-panel__close" onClick={onClose}>
           ✕

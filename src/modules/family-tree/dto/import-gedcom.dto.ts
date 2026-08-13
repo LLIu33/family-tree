@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsString, IsNotEmpty, IsOptional } from "class-validator";
+import { IsString, IsOptional } from "class-validator";
 
 export class ImportGedcomDto {
   @ApiProperty({
