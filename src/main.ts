@@ -55,7 +55,7 @@ async function bootstrap() {
     process.env.SERVE_WEB === "1";
   const webRoot = join(__dirname, "..", "public");
   if (serveWeb && existsSync(webRoot)) {
-    app.useStaticAssets(webRoot);
+    app.useStaticAssets(webRoot, { index: "index.html" });
     app.use((req: Request, res: Response, next: NextFunction) => {
       if (req.method !== "GET" || isApiPath(req.path)) {
         next();
@@ -65,6 +65,12 @@ async function bootstrap() {
         if (err) next(err);
       });
     });
+    Logger.log(`Serving web UI from ${webRoot}`, "Bootstrap");
+  } else if (serveWeb) {
+    Logger.warn(
+      `SERVE_WEB is on but ${webRoot} is missing — / will 404`,
+      "Bootstrap"
+    );
   }
 
   const port = Number(process.env.PORT) || configService.get<number>("PORT") || 3000;

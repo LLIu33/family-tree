@@ -24,7 +24,18 @@ API — только REST (GraphQL удалён).
 
 `docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build`
 
-## Troubleshooting: heap out of memory / exit 134
+## Render Node (один сервис API+UI)
+
+Если открываешь `https://….onrender.com/` и видишь `Cannot GET /` — это только API.
+Нужно собрать фронт в `public/` и включить раздачу:
+
+1. **Build Command:** `npm ci && npm run build:render`  
+   (для web same-origin не задавай `VITE_API_URL`, или поставь пустым)
+2. **Start Command:** `node --max-old-space-size=460 --optimize-for-size dist/main.js`
+3. Env: **`SERVE_WEB=true`**, плюс Aura `NEO4J_*`, `STORAGE_TYPE=local`, `SWAGGER_ENABLED=false`
+4. Redeploy → `/` должен открыть UI, `/health` — API
+
+Альтернатива: отдельный Static Site с Root `web` и `VITE_API_URL=<api url>`.
 
 - Используй `Dockerfile.api` + Clear build cache & deploy  
 - Если снова OOM → instance ≥1 GB или Oracle

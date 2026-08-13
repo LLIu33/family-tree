@@ -9,6 +9,8 @@
     "start:dev": "nest start --watch",
     "start:nest": "nest start",
     "build": "nest build",
+    "build:web": "npm ci --prefix web && npm run build --prefix web",
+    "build:render": "npm run build && npm run build:web && node scripts/copy-web-public.mjs",
     "test": "jest",
     "lint": "eslint \"src/**/*.{ts,js}\" && tsc --noEmit",
     "lint:eslint": "eslint \"src/**/*.{ts,js}\"",
