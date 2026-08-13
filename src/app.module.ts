@@ -2,8 +2,6 @@ import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { FamilyTreeModule } from "./modules/family-tree/family-tree.module";
 import { AuthModule } from "./modules/auth/auth.module";
-import { GraphQLModule } from "@nestjs/graphql";
-import { ApolloDriver, ApolloDriverConfig } from "@nestjs/apollo";
 import { Neo4jModule } from "./neo4j/neo4j.module";
 import { Neo4jConfig } from "./neo4j/interfaces/neo4j-config.interface";
 import {
@@ -52,20 +50,6 @@ import {
           config.get<string>("NEO4J_DATABASE") ||
           "neo4j",
       }),
-    }),
-    GraphQLModule.forRootAsync<ApolloDriverConfig>({
-      driver: ApolloDriver,
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
-        const isProd =
-          (config.get<string>("NODE_ENV") || process.env.NODE_ENV) ===
-          "production";
-        return {
-          autoSchemaFile: true,
-          playground: !isProd,
-          introspection: !isProd,
-        };
-      },
     }),
     AuthModule,
     FamilyTreeModule,

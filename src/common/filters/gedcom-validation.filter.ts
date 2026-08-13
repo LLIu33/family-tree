@@ -6,25 +6,13 @@ import {
   Logger,
 } from "@nestjs/common";
 import { Request, Response } from "express";
-import { GqlArgumentsHost, GqlExceptionFilter } from "@nestjs/graphql";
-import { GraphQLError } from "graphql";
 import { GEDCOMValidationError } from "../errors/gedcom-validation.error";
 
 @Catch(GEDCOMValidationError)
-export class GEDCOMValidationFilter
-  implements ExceptionFilter, GqlExceptionFilter
-{
+export class GEDCOMValidationFilter implements ExceptionFilter {
   private readonly logger = new Logger(GEDCOMValidationFilter.name);
 
   catch(exception: GEDCOMValidationError, host: ArgumentsHost) {
-    // Обработка GraphQL ошибок
-    const gqlHost = GqlArgumentsHost.create(host);
-    const type: string = gqlHost.getType();
-    if (type === "graphql") {
-      return this.handleGqlError(exception);
-    }
-
-    // Обработка REST ошибок
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
@@ -41,20 +29,7 @@ export class GEDCOMValidationFilter
     });
   }
 
-  private handleGqlError(exception: GEDCOMValidationError): GraphQLError {
-    this.logError(exception);
-
-    return new GraphQLError("GEDCOM Validation Failed", {
-      extensions: {
-        code: "GEDCOM_VALIDATION_ERROR",
-        status: HttpStatus.UNPROCESSABLE_ENTITY,
-        errors: exception.errors,
-        file: exception.fileMetadata,
-      },
-    });
-  }
-
-  private transformErrors(errors: any[]) {
+  private transformErrors(errors: Array<Record<string, unknown>>) {
     return errors.map((error) => ({
       type: error.type,
       message: error.message,
@@ -64,13 +39,9 @@ export class GEDCOMValidationFilter
     }));
   }
 
-  private logError(error: GEDCOMValidationError, request?: Request) {
-    const context = request
-      ? `for request ${request.method} ${request.url}`
-      : "in GraphQL";
-
+  private logError(error: GEDCOMValidationError, request: Request) {
     this.logger.error(
-      `GEDCOM Validation Failed ${context}: ${error.message}`,
+      `GEDCOM Validation Failed for request ${request.method} ${request.url}: ${error.message}`,
       error.stack
     );
 

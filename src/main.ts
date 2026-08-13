@@ -14,7 +14,6 @@ function isApiPath(path: string): boolean {
   return (
     path.startsWith("/family-tree") ||
     path.startsWith("/auth") ||
-    path.startsWith("/graphql") ||
     path.startsWith("/api-docs") ||
     path === "/health"
   );

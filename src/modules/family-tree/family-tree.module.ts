@@ -2,7 +2,6 @@ import { Module } from "@nestjs/common";
 import { FamilyTreeService } from "./services/family-tree.service";
 import { GedcomParserService } from "./services/gedcom-parser.service";
 import { EventService } from "./services/event.service";
-import { FamilyTreeResolver } from "./resolvers/family-tree.resolver";
 import { FamilyTreeController } from "./controllers/family-tree.controller";
 import { MediaController } from "./controllers/media.controller";
 import { MediaService } from "./services/media.service";
@@ -17,7 +16,6 @@ import { AuthModule } from "../auth/auth.module";
     FamilyTreeService,
     GedcomParserService,
     EventService,
-    FamilyTreeResolver,
     MediaService,
     StorageService,
   ],

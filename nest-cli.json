@@ -3,12 +3,6 @@
   "sourceRoot": "src",
   "compilerOptions": {
     "plugins": ["@nestjs/swagger"],
-    "assets": [
-      {
-        "include": "**/*.graphql",
-        "watchAssets": true
-      }
-    ],
     "watchAssets": true
   }
 }

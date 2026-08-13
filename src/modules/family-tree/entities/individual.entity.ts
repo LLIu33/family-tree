@@ -1,72 +1,29 @@
-import { Field, ID, ObjectType } from "@nestjs/graphql";
 import { ApiHideProperty } from "@nestjs/swagger";
 import { Node } from "neo4j-driver";
 import { v4 as uuidV4 } from "uuid";
 import { Sex } from "../enums/sex.enum";
 
-@ObjectType()
 export class Individual {
-  @Field(() => ID)
   id: string;
-
-  @Field()
   gedcomId: string;
-
-  @Field()
   firstName: string;
-
-  @Field()
   lastName: string;
-
-  @Field({ nullable: true })
   middleName?: string;
-
-  @Field({ nullable: true })
   namePrefix?: string;
-
-  @Field({ nullable: true })
   marriedName?: string;
-
-  @Field()
   sex: Sex | string;
-
-  @Field({ nullable: true })
   birthDate?: Date;
-
-  @Field({ nullable: true })
   deathDate?: Date;
-
-  @Field({ nullable: true })
   birthPlace?: string;
-
-  @Field({ nullable: true })
   deathPlace?: string;
-
-  @Field({ nullable: true })
   deathCause?: string;
-
-  @Field({ nullable: true })
   burialPlace?: string;
-
-  @Field({ nullable: true })
   occupation?: string;
-
-  @Field({ nullable: true })
   retirementNote?: string;
-
-  @Field({ nullable: true })
   email?: string;
-
-  @Field({ nullable: true })
   biography?: string;
-
-  @Field({ nullable: true })
   extraEvents?: string;
-
-  @Field()
   createdAt: Date;
-
-  @Field()
   updatedAt: Date;
 
   @ApiHideProperty()

@@ -7,22 +7,12 @@ import {
 } from "@nestjs/common";
 import { Neo4jError } from "neo4j-driver";
 import { Request, Response } from "express";
-import { GqlArgumentsHost, GqlExceptionFilter } from "@nestjs/graphql";
-import { GraphQLError } from "graphql";
 
 @Catch(Neo4jError)
-export class Neo4jErrorFilter implements ExceptionFilter, GqlExceptionFilter {
+export class Neo4jErrorFilter implements ExceptionFilter {
   private readonly logger = new Logger(Neo4jErrorFilter.name);
 
   catch(exception: Neo4jError, host: ArgumentsHost) {
-    // Обработка GraphQL ошибок
-    const gqlHost = GqlArgumentsHost.create(host);
-    const type: string = gqlHost.getType();
-    if (type === "graphql") {
-      return this.handleGqlError(exception);
-    }
-
-    // Обработка REST ошибок
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
@@ -40,19 +30,6 @@ export class Neo4jErrorFilter implements ExceptionFilter, GqlExceptionFilter {
     });
   }
 
-  private handleGqlError(exception: Neo4jError): GraphQLError {
-    const { status, message } = this.mapNeo4jError(exception);
-    this.logger.error(`GraphQL Neo4j Error: ${message}`, exception.stack);
-
-    return new GraphQLError(message, {
-      extensions: {
-        code: "NEO4J_ERROR",
-        status,
-        neo4jCode: exception.code,
-      },
-    });
-  }
-
   private mapNeo4jError(error: Neo4jError): {
     status: number;
     message: string;
@@ -62,10 +39,6 @@ export class Neo4jErrorFilter implements ExceptionFilter, GqlExceptionFilter {
         status: HttpStatus.CONFLICT,
         message: "Entity already exists",
       },
-      //   "Neo.ClientError.Schema.ConstraintValidationFailed": {
-      //     status: HttpStatus.BAD_REQUEST,
-      //     message: error.message,
-      //   },
       "Neo.ClientError.Statement.EntityNotFound": {
         status: HttpStatus.NOT_FOUND,
         message: "Requested entity not found",

@@ -90,7 +90,6 @@ Protected API routes need `Authorization: Bearer <token>` (Swagger Authorize but
 |---------|-----|
 | API | `http://localhost:3000` |
 | REST base | `http://localhost:3000/family-tree` |
-| GraphQL playground | `http://localhost:3000/graphql` |
 | Swagger (when `SWAGGER_ENABLED=true`) | `http://localhost:3000/api-docs` |
 | Neo4j Browser | `http://localhost:7474` |
 
@@ -129,7 +128,6 @@ Notes:
 - **No authentication** — treat as open/dev API for now
 - **No UI** — `visualize` returns JSON only
 - **Media storage is S3-only** — `STORAGE_TYPE=local` is not implemented yet
-- **GraphQL media upload** is not wired; use REST for media
 - APOC is **not** required
 
 ## License
