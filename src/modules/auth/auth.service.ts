@@ -4,7 +4,6 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
-import * as bcrypt from "bcrypt";
 import { randomUUID } from "crypto";
 import { Neo4jService } from "../../neo4j/neo4j.service";
 import { Neo4jResultUtils } from "../../common/utils/neo4j-result.utils";
@@ -42,7 +41,7 @@ export class AuthService {
 
     const userId = randomUUID();
     const treeId = randomUUID();
-    const passwordHash = await bcrypt.hash(dto.password, 10);
+    const passwordHash = await (await import("bcrypt")).hash(dto.password, 10);
     const treeName = dto.treeName?.trim() || `Древо: ${dto.name}`;
 
     await this.neo4j.write(
@@ -88,7 +87,10 @@ export class AuthService {
       throw new UnauthorizedException("Invalid email or password");
     }
 
-    const ok = await bcrypt.compare(dto.password, row.user.passwordHash);
+    const ok = await (await import("bcrypt")).compare(
+      dto.password,
+      row.user.passwordHash,
+    );
     if (!ok) {
       throw new UnauthorizedException("Invalid email or password");
     }

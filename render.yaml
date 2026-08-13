@@ -21,8 +21,6 @@ services:
         value: "false"
       - key: STORAGE_TYPE
         value: local
-      - key: NODE_OPTIONS
-        value: --max-old-space-size=384
       - key: JWT_SECRET
         generateValue: true
       - key: NEO4J_URI

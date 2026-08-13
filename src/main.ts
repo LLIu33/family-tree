@@ -2,9 +2,8 @@ import "reflect-metadata";
 import { existsSync } from "fs";
 import { join } from "path";
 import { NestFactory } from "@nestjs/core";
-import { ValidationPipe } from "@nestjs/common";
+import { Logger, ValidationPipe } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { json, urlencoded, static as expressStatic } from "express";
 import type { Request, Response, NextFunction } from "express";
 import { AppModule } from "./app.module";
@@ -20,7 +19,9 @@ function isApiPath(path: string): boolean {
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    logger: ["error", "warn", "log"],
+  });
   const configService = app.get(ConfigService);
   const http = app.getHttpAdapter().getInstance();
 
@@ -29,8 +30,8 @@ async function bootstrap() {
     credentials: true,
   });
 
-  app.use(json({ limit: "10mb" }));
-  app.use(urlencoded({ extended: true, limit: "10mb" }));
+  app.use(json({ limit: "2mb" }));
+  app.use(urlencoded({ extended: true, limit: "2mb" }));
 
   http.get("/health", (_req: Request, res: Response) => {
     res.status(200).json({ ok: true });
@@ -46,6 +47,7 @@ async function bootstrap() {
 
   const swagger = configService.get<SwaggerConfig>("swagger");
   if (swagger?.enabled) {
+    const { DocumentBuilder, SwaggerModule } = await import("@nestjs/swagger");
     const documentBuilder = new DocumentBuilder()
       .setTitle(swagger.title)
       .setDescription(swagger.description)
@@ -73,7 +75,12 @@ async function bootstrap() {
     });
   }
 
-  await app.listen(configService.get<number>("PORT") || 3000, "0.0.0.0");
+  const port = configService.get<number>("PORT") || 3000;
+  await app.listen(port, "0.0.0.0");
+  Logger.log(`Listening on 0.0.0.0:${port}`, "Bootstrap");
 }
 
-bootstrap();
+bootstrap().catch((err) => {
+  console.error("Fatal bootstrap error", err);
+  process.exit(1);
+});

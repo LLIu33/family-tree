@@ -1,5 +1,4 @@
 import { registerAs } from "@nestjs/config";
-import { OpenAPIObject } from "@nestjs/swagger";
 
 export interface SwaggerConfig {
   enabled: boolean;
@@ -18,18 +17,3 @@ export const swaggerConfig = registerAs("swagger", (): SwaggerConfig => ({
   version: process.env.SWAGGER_VERSION || "1.0",
   path: process.env.SWAGGER_PATH || "api-docs",
 }));
-
-export const SWAGGER_CONFIG: Omit<OpenAPIObject, "paths"> = {
-  openapi: "3.0.0",
-  info: {
-    title: "Древо API",
-    version: "1.0",
-    description: "API для управления генеалогическими данными",
-  },
-  servers: [
-    {
-      url: "http://localhost:3000",
-      description: "Development server",
-    },
-  ],
-};

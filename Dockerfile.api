@@ -14,12 +14,13 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV SERVE_WEB=false
 ENV PORT=3000
-# Leave headroom under Render Free 512MB for native addons / OS.
-ENV NODE_OPTIONS=--max-old-space-size=384
+ENV SWAGGER_ENABLED=false
 
 COPY package.json package-lock.json ./
 COPY --from=api-build /app/node_modules ./node_modules
 COPY --from=api-build /app/dist ./dist
 
 EXPOSE 3000
-CMD ["node", "dist/main.js"]
+# Pass heap flag on argv — Render may override/ignore NODE_OPTIONS.
+# ~460 leaves a little headroom under Free's ~512MB cgroup.
+CMD ["node", "--max-old-space-size=460", "--optimize-for-size", "dist/main.js"]
