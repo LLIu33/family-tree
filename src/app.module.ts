@@ -53,10 +53,19 @@ import {
           "neo4j",
       }),
     }),
-    GraphQLModule.forRoot<ApolloDriverConfig>({
+    GraphQLModule.forRootAsync<ApolloDriverConfig>({
       driver: ApolloDriver,
-      autoSchemaFile: true,
-      playground: true,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const isProd =
+          (config.get<string>("NODE_ENV") || process.env.NODE_ENV) ===
+          "production";
+        return {
+          autoSchemaFile: true,
+          playground: !isProd,
+          introspection: !isProd,
+        };
+      },
     }),
     AuthModule,
     FamilyTreeModule,

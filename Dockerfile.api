@@ -1,14 +1,5 @@
 # syntax=docker/dockerfile:1
-
-FROM node:22-bookworm-slim AS web-build
-WORKDIR /web
-COPY web/package.json web/package-lock.json ./
-RUN npm ci
-COPY web/ ./
-# Empty → same-origin (Oracle / single-service). Override for Render split builds.
-ARG VITE_API_URL=
-ENV VITE_API_URL=$VITE_API_URL
-RUN npm run build
+# Lean API image for Render Free (no Vite build — use static site separately).
 
 FROM node:22-bookworm-slim AS api-build
 WORKDIR /app
@@ -21,14 +12,14 @@ RUN npm run build && npm prune --omit=dev
 FROM node:22-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
-ENV SERVE_WEB=true
+ENV SERVE_WEB=false
 ENV PORT=3000
+# Leave headroom under Render Free 512MB for native addons / OS.
 ENV NODE_OPTIONS=--max-old-space-size=384
 
 COPY package.json package-lock.json ./
 COPY --from=api-build /app/node_modules ./node_modules
 COPY --from=api-build /app/dist ./dist
-COPY --from=web-build /web/dist ./public
 
 EXPOSE 3000
 CMD ["node", "dist/main.js"]
