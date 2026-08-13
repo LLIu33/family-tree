@@ -302,6 +302,102 @@ export function edgePath(
   return `M ${x1} ${a.y + CARD_H} V ${midY} H ${x2} V ${b.y}`
 }
 
+export type FamilyComb = {
+  familyId: string
+  d: string
+  memberIds: string[]
+}
+
+/**
+ * Classic genealogy comb per family:
+ * stem from parent mid (spouse gap or single parent) → horizontal bar → drops to children.
+ */
+export function buildFamilyCombs(
+  relationships: TreeRelationship[],
+  pos: Map<string, LaidOutNode>,
+): FamilyComb[] {
+  const byFamily = new Map<
+    string,
+    { parents: Set<string>; children: Set<string> }
+  >()
+
+  for (const rel of relationships) {
+    if (!rel.familyId) continue
+    if (!byFamily.has(rel.familyId)) {
+      byFamily.set(rel.familyId, {
+        parents: new Set(),
+        children: new Set(),
+      })
+    }
+    const fam = byFamily.get(rel.familyId)!
+    if (rel.type === 'PARENT_CHILD') {
+      fam.parents.add(rel.source)
+      fam.children.add(rel.target)
+    } else if (rel.type === 'SPOUSE') {
+      fam.parents.add(rel.source)
+      fam.parents.add(rel.target)
+    }
+  }
+
+  const combs: FamilyComb[] = []
+
+  for (const [familyId, fam] of byFamily) {
+    const parents = [...fam.parents]
+      .map((id) => pos.get(id))
+      .filter((n): n is LaidOutNode => Boolean(n))
+      .sort((a, b) => a.x - b.x || a.id.localeCompare(b.id))
+    const children = [...fam.children]
+      .map((id) => pos.get(id))
+      .filter((n): n is LaidOutNode => Boolean(n))
+      .sort((a, b) => a.x - b.x || a.id.localeCompare(b.id))
+
+    if (parents.length === 0 || children.length === 0) continue
+
+    const childXs = children.map((c) => c.x + CARD_W / 2)
+    const parentBottom = Math.max(...parents.map((p) => p.y + CARD_H))
+    const childTop = Math.min(...children.map((c) => c.y))
+    if (childTop <= parentBottom + 8) continue
+
+    const barY = parentBottom + (childTop - parentBottom) * 0.45
+
+    let stemX: number
+    let stemTopY: number
+    if (parents.length >= 2) {
+      const left = parents[0]
+      const right = parents[parents.length - 1]
+      stemX = (left.x + CARD_W + right.x) / 2
+      stemTopY = (left.y + right.y) / 2 + CARD_H / 2
+    } else {
+      stemX = parents[0].x + CARD_W / 2
+      stemTopY = parents[0].y + CARD_H
+    }
+
+    const barLeft = Math.min(stemX, ...childXs)
+    const barRight = Math.max(stemX, ...childXs)
+
+    const parts = [`M ${stemX} ${stemTopY} V ${barY}`]
+    if (barRight - barLeft > 0.5) {
+      parts.push(`M ${barLeft} ${barY} H ${barRight}`)
+    }
+    for (const cx of childXs) {
+      parts.push(`M ${cx} ${barY} V ${childTop}`)
+    }
+
+    combs.push({
+      familyId,
+      d: parts.join(' '),
+      memberIds: [
+        ...new Set([
+          ...parents.map((p) => p.id),
+          ...children.map((c) => c.id),
+        ]),
+      ],
+    })
+  }
+
+  return combs
+}
+
 export function meaningfulNamePart(value?: string): string {
   const trimmed = value?.trim() ?? ''
   if (!trimmed || trimmed.toLowerCase() === 'unknown') return ''

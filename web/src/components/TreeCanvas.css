@@ -135,6 +135,13 @@
   stroke-width: 2.1;
 }
 
+.tree-edge.family {
+  stroke: rgba(44, 95, 78, 0.52);
+  stroke-width: 2.15;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+}
+
 .tree-edge.spouse {
   stroke: rgba(44, 95, 78, 0.62);
   stroke-width: 2;

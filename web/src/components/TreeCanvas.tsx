@@ -12,6 +12,7 @@ import {
   CARD_H,
   CARD_W,
   PAD,
+  buildFamilyCombs,
   cardNameLines,
   edgePath,
   layoutNodes,
@@ -44,9 +45,18 @@ function relatedIds(
   const related = new Set<string>()
   if (!focusId) return related
   related.add(focusId)
+  const familyIds = new Set<string>()
   for (const rel of relationships) {
-    if (rel.source === focusId) related.add(rel.target)
-    if (rel.target === focusId) related.add(rel.source)
+    if (rel.source === focusId || rel.target === focusId) {
+      related.add(rel.source)
+      related.add(rel.target)
+      if (rel.familyId) familyIds.add(rel.familyId)
+    }
+  }
+  for (const rel of relationships) {
+    if (!familyIds.has(rel.familyId)) continue
+    related.add(rel.source)
+    related.add(rel.target)
   }
   return related
 }
@@ -95,6 +105,11 @@ export function TreeCanvas({
 
   const edges = relationships.filter(
     (rel) => pos.has(rel.source) && pos.has(rel.target),
+  )
+  const spouseEdges = edges.filter((rel) => rel.type === 'SPOUSE')
+  const familyCombs = useMemo(
+    () => buildFamilyCombs(relationships, pos),
+    [relationships, pos],
   )
 
   const focusId = hoverId ?? selectedId
@@ -333,14 +348,14 @@ export function TreeCanvas({
             role="img"
             aria-label="Семейное древо"
           >
-            {edges.map((rel, i) => {
+            {spouseEdges.map((rel, i) => {
               const a = pos.get(rel.source)!
               const b = pos.get(rel.target)!
               const isHot =
                 !dimEdges || (hot.has(rel.source) && hot.has(rel.target))
               const classes = [
                 'tree-edge',
-                rel.type === 'SPOUSE' ? 'spouse' : 'kin',
+                'spouse',
                 dimEdges && !isHot ? 'is-dim' : '',
                 dimEdges && isHot ? 'is-hot' : '',
               ]
@@ -348,8 +363,29 @@ export function TreeCanvas({
                 .join(' ')
               return (
                 <path
-                  key={`${rel.type}-${rel.source}-${rel.target}-${i}`}
+                  key={`spouse-${rel.source}-${rel.target}-${i}`}
                   d={edgePath(a, b, rel.type)}
+                  className={classes}
+                  fill="none"
+                />
+              )
+            })}
+
+            {familyCombs.map((comb) => {
+              const isHot =
+                !dimEdges || comb.memberIds.some((id) => hot.has(id))
+              const classes = [
+                'tree-edge',
+                'family',
+                dimEdges && !isHot ? 'is-dim' : '',
+                dimEdges && isHot ? 'is-hot' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')
+              return (
+                <path
+                  key={`family-${comb.familyId}`}
+                  d={comb.d}
                   className={classes}
                   fill="none"
                 />
