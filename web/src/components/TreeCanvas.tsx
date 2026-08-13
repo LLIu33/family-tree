@@ -1,6 +1,24 @@
-import { useMemo } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import type { IndividualNode, TreeRelationship } from '../api'
 import { PersonAvatar } from './PersonAvatar'
+import {
+  CARD_H,
+  CARD_W,
+  PAD,
+  cardNameLines,
+  edgePath,
+  layoutNodes,
+  personMatchesQuery,
+  yearOf,
+  type LaidOutNode,
+} from './treeLayout'
 import './TreeCanvas.css'
 
 interface Props {
@@ -11,300 +29,26 @@ interface Props {
   onSelect?: (id: string) => void
 }
 
-interface LaidOutNode extends IndividualNode {
-  x: number
-  y: number
-  generation: number
+const MIN_SCALE = 0.35
+const MAX_SCALE = 2.25
+const ZOOM_STEP = 1.12
+
+function clampScale(value: number): number {
+  return Math.min(MAX_SCALE, Math.max(MIN_SCALE, value))
 }
 
-const CARD_W = 176
-const CARD_H = 96
-const GAP_X = 36
-const GAP_Y = 130
-const PAD = 48
-const UNIT = CARD_W + GAP_X
-
-function displayName(n: IndividualNode): string {
-  const first = n.firstName?.trim()
-  const last = n.lastName?.trim()
-  const parts = [first, n.middleName?.trim(), last].filter(
-    (p) => p && p.toLowerCase() !== 'unknown',
-  )
-  if (parts.length) return parts.join(' ')
-  return 'Без имени'
-}
-
-function yearOf(value?: string): string {
-  if (!value) return ''
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return String(value).slice(0, 4)
-  return String(d.getFullYear())
-}
-
-function hasName(n: IndividualNode): boolean {
-  const first = n.firstName?.trim().toLowerCase()
-  const last = n.lastName?.trim().toLowerCase()
-  return Boolean(
-    (first && first !== 'unknown') || (last && last !== 'unknown'),
-  )
-}
-
-/**
- * Layered genealogy layout:
- * 1) generation from parent→child only
- * 2) orphan spouses adopt partner generation (display only)
- * 3) barycenter ordering to keep parents near children
- * 4) spouses placed side-by-side within a layer
- */
-function layoutNodes(
-  nodes: IndividualNode[],
+function relatedIds(
+  focusId: string | null | undefined,
   relationships: TreeRelationship[],
-  preferredRoot?: string | null,
-): LaidOutNode[] {
-  const byId = new Map(nodes.map((n) => [n.id, n]))
-  if (nodes.length === 0) return []
-
-  const parentsOf = new Map<string, string[]>()
-  const childrenOf = new Map<string, string[]>()
-  const spousesOf = new Map<string, string[]>()
-
-  const pushUnique = (map: Map<string, string[]>, key: string, value: string) => {
-    if (!map.has(key)) map.set(key, [])
-    const list = map.get(key)!
-    if (!list.includes(value)) list.push(value)
-  }
-
+): Set<string> {
+  const related = new Set<string>()
+  if (!focusId) return related
+  related.add(focusId)
   for (const rel of relationships) {
-    if (rel.type === 'PARENT_CHILD') {
-      pushUnique(parentsOf, rel.target, rel.source)
-      pushUnique(childrenOf, rel.source, rel.target)
-    } else if (rel.type === 'SPOUSE') {
-      pushUnique(spousesOf, rel.source, rel.target)
-      pushUnique(spousesOf, rel.target, rel.source)
-    }
+    if (rel.source === focusId) related.add(rel.target)
+    if (rel.target === focusId) related.add(rel.source)
   }
-
-  const generation = new Map<string, number>()
-  const depthOf = (id: string, stack: Set<string>): number => {
-    if (generation.has(id)) return generation.get(id)!
-    if (stack.has(id)) return 0
-    stack.add(id)
-    const pars = parentsOf.get(id) ?? []
-    const g =
-      pars.length === 0
-        ? 0
-        : Math.max(...pars.map((p) => depthOf(p, stack))) + 1
-    stack.delete(id)
-    generation.set(id, g)
-    return g
-  }
-  for (const n of nodes) depthOf(n.id, new Set())
-
-  // Spouses without their own parents sit on the partner's generation.
-  for (const [id, spouses] of spousesOf) {
-    if ((parentsOf.get(id) ?? []).length > 0) continue
-    let best: number | undefined
-    for (const s of spouses) {
-      const g = generation.get(s)
-      if (g == null) continue
-      best = best == null ? g : Math.min(best, g)
-    }
-    if (best != null) generation.set(id, best)
-  }
-
-  const byGen = new Map<number, string[]>()
-  for (const [id, g] of generation) {
-    if (!byId.has(id)) continue
-    if (!byGen.has(g)) byGen.set(g, [])
-    byGen.get(g)!.push(id)
-  }
-  const gens = [...byGen.keys()].sort((a, b) => a - b)
-
-  const order = new Map<string, number>()
-  const seed = preferredRoot && byId.has(preferredRoot) ? preferredRoot : null
-
-  // Initial order: prefer named people, keep preferred root early.
-  for (const g of gens) {
-    const ids = byGen.get(g)!.slice().sort((a, b) => {
-      if (a === seed) return -1
-      if (b === seed) return 1
-      const na = hasName(byId.get(a)!) ? 0 : 1
-      const nb = hasName(byId.get(b)!) ? 0 : 1
-      if (na !== nb) return na - nb
-      return a.localeCompare(b)
-    })
-    ids.forEach((id, i) => order.set(id, i))
-    byGen.set(g, ids)
-  }
-
-  const barycenter = (ids: string[], neighbors: (id: string) => string[]) => {
-    const scored = ids.map((id) => {
-      const ns = neighbors(id).filter((n) => order.has(n))
-      if (ns.length === 0) return { id, score: order.get(id) ?? 0 }
-      const avg = ns.reduce((s, n) => s + (order.get(n) ?? 0), 0) / ns.length
-      return { id, score: avg }
-    })
-    scored.sort((a, b) => a.score - b.score || a.id.localeCompare(b.id))
-    return scored.map((s) => s.id)
-  }
-
-  // Iterate barycenters down then up to reduce crossings.
-  for (let pass = 0; pass < 8; pass++) {
-    for (let gi = 1; gi < gens.length; gi++) {
-      const g = gens[gi]
-      const ids = barycenter(byGen.get(g)!, (id) => parentsOf.get(id) ?? [])
-      byGen.set(g, ids)
-      ids.forEach((id, i) => order.set(id, i))
-    }
-    for (let gi = gens.length - 2; gi >= 0; gi--) {
-      const g = gens[gi]
-      const ids = barycenter(byGen.get(g)!, (id) => childrenOf.get(id) ?? [])
-      byGen.set(g, ids)
-      ids.forEach((id, i) => order.set(id, i))
-    }
-  }
-
-  // Pull spouses next to each other within each layer.
-  for (const g of gens) {
-    const ids = byGen.get(g)!
-    const placed = new Set<string>()
-    const next: string[] = []
-    for (const id of ids) {
-      if (placed.has(id)) continue
-      next.push(id)
-      placed.add(id)
-      for (const s of spousesOf.get(id) ?? []) {
-        if (generation.get(s) !== g || placed.has(s)) continue
-        next.push(s)
-        placed.add(s)
-      }
-    }
-    byGen.set(g, next)
-    next.forEach((id, i) => order.set(id, i))
-  }
-
-  // X positions: start from densest generation, propagate parent midpoints downward.
-  const xPos = new Map<string, number>()
-  const densest = gens.reduce((a, b) =>
-    (byGen.get(a)?.length ?? 0) >= (byGen.get(b)?.length ?? 0) ? a : b,
-  )
-  const densestIds = byGen.get(densest)!
-  densestIds.forEach((id, i) => xPos.set(id, PAD + i * UNIT))
-
-  const placeByRefs = (
-    g: number,
-    ids: string[],
-    refsOf: (id: string) => string[],
-  ): void => {
-    const assigned: Array<{ id: string; x: number }> = []
-    const floating: string[] = []
-
-    for (const id of ids) {
-      const refs = refsOf(id).filter((r) => xPos.has(r))
-      if (refs.length === 0) {
-        floating.push(id)
-        continue
-      }
-      const x = refs.reduce((s, r) => s + xPos.get(r)!, 0) / refs.length
-      assigned.push({ id, x })
-    }
-
-    assigned.sort((a, b) => a.x - b.x || a.id.localeCompare(b.id))
-    let cursor = PAD
-    for (const item of assigned) {
-      const x = Math.max(cursor, item.x)
-      xPos.set(item.id, x)
-      cursor = x + UNIT
-    }
-    for (const id of floating) {
-      xPos.set(id, cursor)
-      cursor += UNIT
-    }
-
-    // Resolve overlaps while preserving order.
-    const ordered = ids
-      .slice()
-      .sort(
-        (a, b) =>
-          (xPos.get(a) ?? 0) - (xPos.get(b) ?? 0) || a.localeCompare(b),
-      )
-    let prev = -Infinity
-    for (const id of ordered) {
-      let x = xPos.get(id) ?? PAD
-      if (x < prev + UNIT) x = prev + UNIT
-      xPos.set(id, x)
-      prev = x
-    }
-    byGen.set(g, ordered)
-  }
-
-  for (const g of gens) {
-    if (g === densest) continue
-    if (g > densest) {
-      placeByRefs(g, byGen.get(g)!, (id) => parentsOf.get(id) ?? [])
-    }
-  }
-  for (let i = gens.indexOf(densest) - 1; i >= 0; i--) {
-    const g = gens[i]
-    placeByRefs(g, byGen.get(g)!, (id) => childrenOf.get(id) ?? [])
-  }
-
-  // Ensure densest layer also has no gaps after spouse clustering.
-  {
-    const ids = byGen.get(densest)!
-    let prev = -Infinity
-    const ordered = ids
-      .slice()
-      .sort(
-        (a, b) =>
-          (xPos.get(a) ?? 0) - (xPos.get(b) ?? 0) || a.localeCompare(b),
-      )
-    for (const id of ordered) {
-      let x = xPos.get(id) ?? PAD
-      if (x < prev + UNIT) x = prev + UNIT
-      xPos.set(id, x)
-      prev = x
-    }
-    byGen.set(densest, ordered)
-  }
-
-  // Normalize so min x = PAD.
-  let minX = Infinity
-  for (const x of xPos.values()) minX = Math.min(minX, x)
-  const shift = PAD - minX
-  if (shift !== 0) {
-    for (const [id, x] of xPos) xPos.set(id, x + shift)
-  }
-
-  const laid: LaidOutNode[] = []
-  for (const g of gens) {
-    for (const id of byGen.get(g)!) {
-      const node = byId.get(id)!
-      laid.push({
-        ...node,
-        generation: g,
-        x: xPos.get(id) ?? PAD,
-        y: PAD + g * GAP_Y,
-      })
-    }
-  }
-  return laid
-}
-
-function edgePath(
-  a: LaidOutNode,
-  b: LaidOutNode,
-  type: string,
-): string {
-  const x1 = a.x + CARD_W / 2
-  const y1 = a.y + CARD_H / 2
-  const x2 = b.x + CARD_W / 2
-  const y2 = b.y + CARD_H / 2
-  if (type === 'SPOUSE') {
-    return `M ${x1} ${y1} L ${x2} ${y2}`
-  }
-  const midY = (a.y + CARD_H + b.y) / 2
-  return `M ${x1} ${a.y + CARD_H} V ${midY} H ${x2} V ${b.y}`
+  return related
 }
 
 export function TreeCanvas({
@@ -314,6 +58,27 @@ export function TreeCanvas({
   selectedId,
   onSelect,
 }: Props) {
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const [scale, setScale] = useState(1)
+  const [tx, setTx] = useState(0)
+  const [ty, setTy] = useState(0)
+  const [hoverId, setHoverId] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
+  const [dragging, setDragging] = useState(false)
+  const dragRef = useRef<{
+    pointerId: number
+    startX: number
+    startY: number
+    originTx: number
+    originTy: number
+  } | null>(null)
+  const focusedSelection = useRef<string | null>(null)
+  const transformRef = useRef({ scale: 1, tx: 0, ty: 0 })
+
+  useEffect(() => {
+    transformRef.current = { scale, tx, ty }
+  }, [scale, tx, ty])
+
   const laid = useMemo(
     () => layoutNodes(nodes, relationships, rootId),
     [nodes, relationships, rootId],
@@ -332,68 +97,334 @@ export function TreeCanvas({
     (rel) => pos.has(rel.source) && pos.has(rel.target),
   )
 
-  return (
-    <div className="tree-scroll">
-      <svg
-        className="tree-svg"
-        width={width}
-        height={height}
-        viewBox={`0 0 ${width} ${height}`}
-        role="img"
-        aria-label="Семейное древо"
-      >
-        {edges.map((rel, i) => {
-          const a = pos.get(rel.source)!
-          const b = pos.get(rel.target)!
-          return (
-            <path
-              key={`${rel.type}-${rel.source}-${rel.target}-${i}`}
-              d={edgePath(a, b, rel.type)}
-              className={
-                rel.type === 'SPOUSE' ? 'tree-edge spouse' : 'tree-edge'
-              }
-              fill="none"
-            />
-          )
-        })}
+  const focusId = hoverId ?? selectedId
+  const hot = useMemo(
+    () => relatedIds(focusId, relationships),
+    [focusId, relationships],
+  )
+  const dimEdges = Boolean(focusId)
 
-        {laid.map((n) => {
-          const years = [yearOf(n.birthDate), yearOf(n.deathDate)]
-            .filter(Boolean)
-            .join(' – ')
-          return (
-            <foreignObject
-              key={n.id}
-              x={n.x}
-              y={n.y}
-              width={CARD_W}
-              height={CARD_H}
-              className="tree-fo"
-            >
-              <div
-                className={`tree-node ${n.id === rootId ? 'is-root' : ''} ${n.id === selectedId ? 'is-selected' : ''}`}
-                title={n.id}
-                role="button"
-                tabIndex={0}
-                aria-pressed={n.id === selectedId}
-                onClick={() => onSelect?.(n.id)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault()
-                    onSelect?.(n.id)
-                  }
-                }}
-              >
-                <PersonAvatar person={n} size="sm" />
-                <div className="tree-node__text">
-                  <strong>{displayName(n)}</strong>
-                  <span>{years || '—'}</span>
-                </div>
-              </div>
-            </foreignObject>
-          )
-        })}
-      </svg>
+  const searchHits = useMemo(() => {
+    const q = query.trim()
+    if (!q) return [] as LaidOutNode[]
+    return laid.filter((n) => personMatchesQuery(n, q)).slice(0, 8)
+  }, [laid, query])
+
+  function centerOn(node: LaidOutNode, nextScale = transformRef.current.scale) {
+    const viewport = viewportRef.current
+    if (!viewport) return
+    const rect = viewport.getBoundingClientRect()
+    const cx = node.x + CARD_W / 2
+    const cy = node.y + CARD_H / 2
+    setTx(rect.width / 2 - cx * nextScale)
+    setTy(rect.height / 2 - cy * nextScale)
+  }
+
+  function zoomAt(clientX: number, clientY: number, nextScale: number) {
+    const viewport = viewportRef.current
+    const { scale: currentScale, tx: currentTx, ty: currentTy } =
+      transformRef.current
+    if (!viewport) {
+      setScale(nextScale)
+      return
+    }
+    const rect = viewport.getBoundingClientRect()
+    const px = clientX - rect.left
+    const py = clientY - rect.top
+    const worldX = (px - currentTx) / currentScale
+    const worldY = (py - currentTy) / currentScale
+    setScale(nextScale)
+    setTx(px - worldX * nextScale)
+    setTy(py - worldY * nextScale)
+  }
+
+  useEffect(() => {
+    if (!selectedId || !pos.has(selectedId)) return
+    if (focusedSelection.current === selectedId) return
+    focusedSelection.current = selectedId
+    centerOn(pos.get(selectedId)!)
+  }, [selectedId, pos])
+
+  useEffect(() => {
+    const viewport = viewportRef.current
+    if (!viewport) return
+
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault()
+      const { scale: currentScale } = transformRef.current
+      const direction = event.deltaY > 0 ? 1 / ZOOM_STEP : ZOOM_STEP
+      zoomAt(
+        event.clientX,
+        event.clientY,
+        clampScale(currentScale * direction),
+      )
+    }
+
+    viewport.addEventListener('wheel', handleWheel, { passive: false })
+    return () => viewport.removeEventListener('wheel', handleWheel)
+  }, [])
+
+  function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.button !== 0) return
+    const target = event.target as HTMLElement
+    if (target.closest('.tree-node, .tree-toolbar, .tree-search-hits')) return
+    const { tx: currentTx, ty: currentTy } = transformRef.current
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originTx: currentTx,
+      originTy: currentTy,
+    }
+    setDragging(true)
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  function onPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    setTx(drag.originTx + (event.clientX - drag.startX))
+    setTy(drag.originTy + (event.clientY - drag.startY))
+  }
+
+  function endDrag(event: ReactPointerEvent<HTMLDivElement>) {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    dragRef.current = null
+    setDragging(false)
+  }
+
+  function selectAndFocus(id: string) {
+    onSelect?.(id)
+    const node = pos.get(id)
+    if (node) {
+      focusedSelection.current = id
+      centerOn(node)
+    }
+  }
+
+  function onSearchSubmit(event: FormEvent) {
+    event.preventDefault()
+    const hit = searchHits[0]
+    if (hit) {
+      setQuery('')
+      selectAndFocus(hit.id)
+    }
+  }
+
+  const zoomPercent = Math.round(scale * 100)
+
+  return (
+    <div className="tree-shell">
+      <div className="tree-toolbar">
+        <form className="tree-search" onSubmit={onSearchSubmit}>
+          <label className="sr-only" htmlFor="tree-search-input">
+            Поиск человека
+          </label>
+          <input
+            id="tree-search-input"
+            type="search"
+            placeholder="Найти по имени…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            autoComplete="off"
+          />
+          {searchHits.length > 0 && (
+            <ul className="tree-search-hits">
+              {searchHits.map((n) => {
+                const names = cardNameLines(n)
+                return (
+                  <li key={n.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setQuery('')
+                        selectAndFocus(n.id)
+                      }}
+                    >
+                      <strong>{names.primary}</strong>
+                      {names.secondary ? <span>{names.secondary}</span> : null}
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </form>
+        <div className="tree-zoom">
+          <button
+            type="button"
+            className="btn btn-ghost"
+            aria-label="Уменьшить"
+            onClick={() => {
+              const viewport = viewportRef.current?.getBoundingClientRect()
+              if (!viewport) {
+                setScale((s) => clampScale(s / ZOOM_STEP))
+                return
+              }
+              zoomAt(
+                viewport.left + viewport.width / 2,
+                viewport.top + viewport.height / 2,
+                clampScale(scale / ZOOM_STEP),
+              )
+            }}
+          >
+            −
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost tree-zoom__reset"
+            onClick={() => {
+              setScale(1)
+              if (selectedId && pos.has(selectedId)) {
+                focusedSelection.current = selectedId
+                centerOn(pos.get(selectedId)!, 1)
+              } else {
+                setTx(0)
+                setTy(0)
+              }
+            }}
+          >
+            {zoomPercent}%
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            aria-label="Увеличить"
+            onClick={() => {
+              const viewport = viewportRef.current?.getBoundingClientRect()
+              if (!viewport) {
+                setScale((s) => clampScale(s * ZOOM_STEP))
+                return
+              }
+              zoomAt(
+                viewport.left + viewport.width / 2,
+                viewport.top + viewport.height / 2,
+                clampScale(scale * ZOOM_STEP),
+              )
+            }}
+          >
+            +
+          </button>
+        </div>
+      </div>
+
+      <div
+        ref={viewportRef}
+        className={`tree-viewport${dragging ? ' is-dragging' : ''}`}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+      >
+        <div
+          className="tree-world"
+          style={{
+            width,
+            height,
+            transform: `translate(${tx}px, ${ty}px) scale(${scale})`,
+          }}
+        >
+          <svg
+            className="tree-svg"
+            width={width}
+            height={height}
+            viewBox={`0 0 ${width} ${height}`}
+            role="img"
+            aria-label="Семейное древо"
+          >
+            {edges.map((rel, i) => {
+              const a = pos.get(rel.source)!
+              const b = pos.get(rel.target)!
+              const isHot =
+                !dimEdges || (hot.has(rel.source) && hot.has(rel.target))
+              const classes = [
+                'tree-edge',
+                rel.type === 'SPOUSE' ? 'spouse' : 'kin',
+                dimEdges && !isHot ? 'is-dim' : '',
+                dimEdges && isHot ? 'is-hot' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')
+              return (
+                <path
+                  key={`${rel.type}-${rel.source}-${rel.target}-${i}`}
+                  d={edgePath(a, b, rel.type)}
+                  className={classes}
+                  fill="none"
+                />
+              )
+            })}
+
+            {[...laid]
+              .sort((a, b) => {
+                const rank = (id: string) =>
+                  id === selectedId ? 2 : id === rootId ? 1 : 0
+                return rank(a.id) - rank(b.id)
+              })
+              .map((n) => {
+              const years = [yearOf(n.birthDate), yearOf(n.deathDate)]
+                .filter(Boolean)
+                .join(' – ')
+              const names = cardNameLines(n)
+              const isSelected = n.id === selectedId
+              const isRoot = n.id === rootId
+              const isDim = dimEdges && !hot.has(n.id)
+              return (
+                <foreignObject
+                  key={n.id}
+                  x={n.x}
+                  y={n.y}
+                  width={CARD_W}
+                  height={CARD_H}
+                  className={`tree-fo${isSelected || isRoot ? ' is-front' : ''}`}
+                >
+                  <div
+                    className={[
+                      'tree-node',
+                      isRoot ? 'is-root' : '',
+                      isSelected ? 'is-selected' : '',
+                      isDim ? 'is-dim' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    title={[names.primary, names.secondary, years]
+                      .filter(Boolean)
+                      .join(' · ')}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={isSelected}
+                    onMouseEnter={() => setHoverId(n.id)}
+                    onMouseLeave={() =>
+                      setHoverId((current) => (current === n.id ? null : current))
+                    }
+                    onClick={() => selectAndFocus(n.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        selectAndFocus(n.id)
+                      }
+                    }}
+                  >
+                    <PersonAvatar person={n} size="sm" />
+                    <div className="tree-node__text">
+                      <strong className="tree-node__primary">
+                        {names.primary}
+                      </strong>
+                      {names.secondary ? (
+                        <span className="tree-node__secondary">
+                          {names.secondary}
+                        </span>
+                      ) : null}
+                      <span className="tree-node__years">{years || '—'}</span>
+                    </div>
+                  </div>
+                </foreignObject>
+              )
+            })}
+          </svg>
+        </div>
+      </div>
     </div>
   )
 }
