@@ -36,6 +36,8 @@ export interface IndividualNode {
   sex?: string
   birthDate?: string
   deathDate?: string
+  avatarUrl?: string
+  avatarMediaId?: string
 }
 
 export interface IndividualSummary {
@@ -45,6 +47,8 @@ export interface IndividualSummary {
   sex?: string
   birthDate?: string
   deathDate?: string
+  avatarUrl?: string
+  avatarMediaId?: string
 }
 
 export interface IndividualDetail extends IndividualNode {
@@ -64,6 +68,12 @@ export interface IndividualDetail extends IndividualNode {
     spouses: IndividualSummary[]
     children: IndividualSummary[]
   }
+}
+
+export interface UploadedMedia {
+  id: string
+  url: string
+  thumbnailUrl?: string
 }
 
 export interface UpdateIndividualInput {
@@ -338,6 +348,27 @@ export async function addChild(
     `/family-tree/individuals/${encodeURIComponent(parentId)}/children`,
     { method: 'POST', body: JSON.stringify(input) },
   )
+}
+
+export async function uploadIndividualMedia(
+  individualId: string,
+  file: File,
+): Promise<UploadedMedia> {
+  const form = new FormData()
+  form.append('file', file)
+  return request<UploadedMedia>(
+    `/family-tree/individuals/${encodeURIComponent(individualId)}/media`,
+    {
+      method: 'POST',
+      body: form,
+    },
+  )
+}
+
+export async function deleteMedia(mediaId: string): Promise<void> {
+  return request<void>(`/family-tree/media/${encodeURIComponent(mediaId)}`, {
+    method: 'DELETE',
+  })
 }
 
 export async function importGedcom(file: File): Promise<unknown> {

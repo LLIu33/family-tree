@@ -21,8 +21,11 @@ import {
   IndividualDetail,
   IndividualSummary,
 } from "../interfaces/individual-summary.interface";
+import { Media } from "../entities/media.entity";
 
 const MAX_GENERATIONS = 10;
+type AvatarInfo = { avatarUrl?: string; avatarMediaId?: string };
+type AvatarMedia = Pick<Media, "id" | "type" | "url" | "thumbnailUrl" | "createdAt">;
 
 @Injectable()
 export class FamilyTreeService {
@@ -187,10 +190,16 @@ export class FamilyTreeService {
       { treeId, q },
     );
 
-    return result.records.map(
+    const individuals = result.records.map(
       (record) =>
         Neo4jResultUtils.normalizeValue(record.get("i")) as Individual,
     );
+    const avatarMap = await this.loadAvatarMap(
+      treeId,
+      individuals.map((person) => person.id),
+    );
+    this.attachAvatarToIndividuals(individuals, avatarMap);
+    return individuals;
   }
 
   /**
@@ -272,6 +281,11 @@ export class FamilyTreeService {
       allNodes.map((n) => n.id),
       allRels,
     );
+    const avatarMap = await this.loadAvatarMap(
+      treeId,
+      allNodes.map((person) => person.id),
+    );
+    this.attachAvatarToIndividuals(allNodes, avatarMap);
     const nodes = allNodes;
     const relationships = allRels;
 
@@ -448,7 +462,18 @@ export class FamilyTreeService {
       ),
     ]);
 
+    const avatarMap = await this.loadAvatarMap(treeId, [
+      individual.id,
+      ...parents.map((person) => person.id),
+      ...spouses.map((person) => person.id),
+      ...children.map((person) => person.id),
+    ]);
+
+    Object.assign(individual, avatarMap.get(individual.id));
     individual.relatives = { parents, spouses, children };
+    this.attachAvatarToSummaries(parents, avatarMap);
+    this.attachAvatarToSummaries(spouses, avatarMap);
+    this.attachAvatarToSummaries(children, avatarMap);
     return individual;
   }
 
@@ -474,6 +499,80 @@ export class FamilyTreeService {
       birthDate: normalized.birthDate,
       deathDate: normalized.deathDate,
     };
+  }
+
+  private attachAvatarToSummaries(
+    people: IndividualSummary[],
+    avatarMap: Map<string, AvatarInfo>,
+  ): void {
+    for (const person of people) {
+      const avatar = avatarMap.get(person.id);
+      person.avatarUrl = avatar?.avatarUrl;
+      person.avatarMediaId = avatar?.avatarMediaId;
+    }
+  }
+
+  private attachAvatarToIndividuals(
+    people: Individual[],
+    avatarMap: Map<string, AvatarInfo>,
+  ): void {
+    for (const person of people) {
+      const avatar = avatarMap.get(person.id);
+      person.avatarUrl = avatar?.avatarUrl;
+      person.avatarMediaId = avatar?.avatarMediaId;
+    }
+  }
+
+  private async loadAvatarMap(
+    treeId: string,
+    individualIds: string[],
+  ): Promise<Map<string, AvatarInfo>> {
+    const ids = Array.from(new Set(individualIds.filter(Boolean)));
+    if (ids.length === 0) {
+      return new Map();
+    }
+
+    const result = await this.neo4jService.read(
+      `
+      MATCH (i:Individual {treeId: $treeId})-[:HAS_MEDIA]->(m:Media)
+      WHERE i.id IN $ids
+      RETURN i.id AS individualId, collect(m) AS media
+      `,
+      { treeId, ids },
+    );
+
+    const records = result?.records ?? [];
+    return new Map(
+      records.map((record) => [
+        record.get("individualId") as string,
+        this.resolveAvatarFromMedia(
+          record
+            .get("media")
+            .map((media: unknown) => Neo4jResultUtils.normalizeValue(media)),
+        ),
+      ]),
+    );
+  }
+
+  private resolveAvatarFromMedia(media: AvatarMedia[]): AvatarInfo {
+    const latestPhoto = media
+      .filter((item) => item?.type === "PHOTO")
+      .sort(
+        (a, b) => this.toTimestamp(b.createdAt) - this.toTimestamp(a.createdAt),
+      )[0];
+    const avatarUrl = latestPhoto?.thumbnailUrl || latestPhoto?.url;
+    if (!latestPhoto || !avatarUrl) {
+      return {};
+    }
+    return { avatarUrl, avatarMediaId: latestPhoto.id };
+  }
+
+  private toTimestamp(value?: string): number {
+    if (!value) {
+      return 0;
+    }
+    const timestamp = Date.parse(value);
+    return Number.isNaN(timestamp) ? 0 : timestamp;
   }
 
   async createFamily(

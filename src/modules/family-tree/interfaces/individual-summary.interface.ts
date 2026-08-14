@@ -7,6 +7,8 @@ export interface IndividualSummary {
   sex?: string;
   birthDate?: Date | string;
   deathDate?: Date | string;
+  avatarUrl?: string;
+  avatarMediaId?: string;
 }
 
 export interface IndividualRelatives {
@@ -17,4 +19,6 @@ export interface IndividualRelatives {
 
 export interface IndividualDetail extends Individual {
   relatives: IndividualRelatives;
+  avatarUrl?: string;
+  avatarMediaId?: string;
 }

@@ -3,6 +3,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
   border-radius: 50%;
   font-weight: 600;
   line-height: 1;
@@ -34,4 +35,11 @@
 
 .avatar--u {
   background: #5a6560;
+}
+
+.avatar__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
 }

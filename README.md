@@ -9,8 +9,8 @@
 - Relationships via a **Family hub** model (`HUSBAND` / `WIFE` / `CHILD`)
 - Ancestors / descendants / tree JSON for visualization
 - Built-in GEDCOM import
-- Web UI: login, home, tree canvas, GEDCOM import
-- Media upload (REST → S3)
+- Web UI: login, home, tree canvas, GEDCOM import, person avatars
+- Media upload (REST → S3, required for avatars)
 
 ## Graph model
 
@@ -31,6 +31,7 @@ Do not use `CHILD_OF`, `SPOUSE`, `FAMILY_MEMBER`, or `HAS_MEMBER` as the source 
 - Docker + Docker Compose (recommended), **or** Node.js **20+** (NestJS 11; **22 LTS** recommended) on the host
 - Neo4j 4.4+ (included in Compose)
 - AWS S3 credentials when using media upload (`STORAGE_TYPE=s3`)
+- Person avatars require real S3 credentials; `STORAGE_TYPE=local` is not implemented
 
 ## Setup
 
@@ -96,7 +97,7 @@ Protected API routes need `Authorization: Bearer <token>` (Swagger Authorize but
 Notes:
 
 - `API_PREFIX` in `.env` is not applied yet — routes are `/family-tree/...`, not `/api/...`.
-- Core CRUD / GEDCOM / tree queries work without AWS. Media upload needs real `AWS_*` values.
+- Core CRUD / GEDCOM / tree queries work without AWS. Avatar upload needs real `AWS_*` values with `STORAGE_TYPE=s3`.
 - Change the default Neo4j password before any non-local use.
 
 ## Main REST endpoints

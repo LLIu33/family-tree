@@ -225,6 +225,41 @@ describe("FamilyTreeService getIndividual", () => {
     service = new FamilyTreeService(neo4j as unknown as Neo4jService);
   });
 
+  it("prefers thumbnail from the latest photo when resolving avatar media", () => {
+    const resolved = (service as any).resolveAvatarFromMedia([
+      {
+        id: "media-document",
+        type: "DOCUMENT",
+        url: "https://cdn.example/doc.pdf",
+        thumbnailUrl: "https://cdn.example/doc-thumb.jpg",
+        createdAt: "2024-01-01T00:00:00.000Z",
+      },
+      {
+        id: "media-old-photo",
+        type: "PHOTO",
+        url: "https://cdn.example/photo-old.jpg",
+        thumbnailUrl: "https://cdn.example/photo-old-thumb.jpg",
+        createdAt: "2024-02-01T00:00:00.000Z",
+      },
+      {
+        id: "media-new-photo",
+        type: "PHOTO",
+        url: "https://cdn.example/photo-new.jpg",
+        thumbnailUrl: "https://cdn.example/photo-new-thumb.jpg",
+        createdAt: "2024-03-01T00:00:00.000Z",
+      },
+    ]);
+
+    expect(resolved).toEqual({
+      avatarUrl: "https://cdn.example/photo-new-thumb.jpg",
+      avatarMediaId: "media-new-photo",
+    });
+  });
+
+  it("returns no avatar when no photos are available", () => {
+    expect((service as any).resolveAvatarFromMedia([])).toEqual({});
+  });
+
   it("getIndividual attaches parents, spouses, children", async () => {
     const person = { id: "I1", firstName: "A", lastName: "B", sex: "M" };
     const parent = { id: "P1", firstName: "P", lastName: "B", sex: "M" };
@@ -259,6 +294,90 @@ describe("FamilyTreeService getIndividual", () => {
 
     const result = await service.getIndividual("tree-1", "I1");
     expect(result?.relatives.parents).toEqual([parent]);
+    expect(result?.relatives.spouses).toEqual([spouse]);
+    expect(result?.relatives.children).toEqual([child]);
+  });
+
+  it("getIndividual attaches avatar fields to detail and relatives", async () => {
+    const person = { id: "I1", firstName: "A", lastName: "B", sex: "M" };
+    const parent = { id: "P1", firstName: "P", lastName: "B", sex: "M" };
+    const spouse = { id: "S1", firstName: "S", lastName: "B", sex: "F" };
+    const child = { id: "C1", firstName: "C", lastName: "B", sex: "U" };
+
+    neo4j.read
+      .mockResolvedValueOnce({
+        records: [
+          {
+            get: (k: string) => {
+              if (k === "i") return person;
+              if (k === "relationships") return [];
+              return null;
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        records: [{ get: (k: string) => (k === "person" ? parent : null) }],
+      })
+      .mockResolvedValueOnce({
+        records: [{ get: (k: string) => (k === "person" ? spouse : null) }],
+      })
+      .mockResolvedValueOnce({
+        records: [{ get: (k: string) => (k === "person" ? child : null) }],
+      })
+      .mockResolvedValueOnce({
+        records: [
+          {
+            get: (key: string) =>
+              (
+                {
+                  individualId: "I1",
+                  media: [
+                    {
+                      id: "avatar-main",
+                      type: "PHOTO",
+                      url: "https://cdn.example/i1.jpg",
+                      thumbnailUrl: "https://cdn.example/i1-thumb.jpg",
+                      createdAt: "2024-03-01T00:00:00.000Z",
+                    },
+                  ],
+                } as Record<string, unknown>
+              )[key],
+          },
+          {
+            get: (key: string) =>
+              (
+                {
+                  individualId: "P1",
+                  media: [
+                    {
+                      id: "avatar-parent",
+                      type: "PHOTO",
+                      url: "https://cdn.example/p1.jpg",
+                      createdAt: "2024-02-01T00:00:00.000Z",
+                    },
+                  ],
+                } as Record<string, unknown>
+              )[key],
+          },
+        ],
+      });
+
+    jest
+      .spyOn(Neo4jResultUtils, "normalizeValue")
+      .mockImplementation((value) => value as any);
+
+    const result = await service.getIndividual("tree-1", "I1");
+
+    expect(result?.avatarUrl).toBe("https://cdn.example/i1-thumb.jpg");
+    expect(result?.avatarMediaId).toBe("avatar-main");
+    expect(result?.relatives.parents).toEqual([
+      {
+        ...parent,
+        avatarUrl: "https://cdn.example/p1.jpg",
+        avatarMediaId: "avatar-parent",
+      },
+    ]);
     expect(result?.relatives.spouses).toEqual([spouse]);
     expect(result?.relatives.children).toEqual([child]);
   });
@@ -434,5 +553,119 @@ describe("FamilyTreeService getFullGraph", () => {
     expect(graph.nodes.map((n) => n.id).sort()).toEqual(["A", "B", "C"]);
     expect(graph.componentCount).toBeGreaterThanOrEqual(2);
     expect(graph.relationships).toHaveLength(1);
+  });
+
+  it("attaches avatarUrl to graph nodes", async () => {
+    neo4j.read
+      .mockResolvedValueOnce({
+        records: [recordOf(node("A", "Ann")), recordOf(node("B", "Bob"))],
+      })
+      .mockResolvedValueOnce({ records: [] })
+      .mockResolvedValueOnce({ records: [] })
+      .mockResolvedValueOnce({
+        records: [
+          {
+            get: (key: string) =>
+              (
+                {
+                  individualId: "B",
+                  media: [
+                    {
+                      id: "avatar-b",
+                      type: "PHOTO",
+                      url: "https://cdn.example/b.jpg",
+                      thumbnailUrl: "https://cdn.example/b-thumb.jpg",
+                      createdAt: "2024-04-01T00:00:00.000Z",
+                    },
+                  ],
+                } as Record<string, unknown>
+              )[key],
+          },
+        ],
+      });
+
+    const graph = await service.getFullGraph("tree-1");
+
+    expect(graph.nodes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "A", avatarUrl: undefined }),
+        expect.objectContaining({
+          id: "B",
+          avatarUrl: "https://cdn.example/b-thumb.jpg",
+        }),
+      ]),
+    );
+  });
+});
+
+describe("FamilyTreeService searchIndividuals", () => {
+  let service: FamilyTreeService;
+  let neo4j: { read: jest.Mock; write: jest.Mock; executeTransaction: jest.Mock };
+
+  beforeEach(() => {
+    neo4j = {
+      read: jest.fn(),
+      write: jest.fn(),
+      executeTransaction: jest.fn(),
+    };
+    service = new FamilyTreeService(neo4j as unknown as Neo4jService);
+    jest.spyOn(service as any, "ensureTreeHasData").mockResolvedValue(undefined);
+  });
+
+  it("attaches avatarUrl and avatarMediaId to search results", async () => {
+    neo4j.read
+      .mockResolvedValueOnce({
+        records: [
+          {
+            get: (key: string) =>
+              key === "i"
+                ? {
+                    id: "I1",
+                    firstName: "Ada",
+                    lastName: "Lovelace",
+                    sex: "F",
+                  }
+                : null,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        records: [
+          {
+            get: (key: string) =>
+              (
+                {
+                  individualId: "I1",
+                  media: [
+                    {
+                      id: "avatar-search",
+                      type: "PHOTO",
+                      url: "https://cdn.example/search.jpg",
+                      thumbnailUrl: "https://cdn.example/search-thumb.jpg",
+                      createdAt: "2024-05-01T00:00:00.000Z",
+                    },
+                  ],
+                } as Record<string, unknown>
+              )[key],
+          },
+        ],
+      });
+
+    jest
+      .spyOn(Neo4jResultUtils, "normalizeValue")
+      .mockImplementation((value) => value as any);
+
+    const results = await service.searchIndividuals("tree-1", "ada");
+
+    expect(results).toEqual([
+      {
+        id: "I1",
+        firstName: "Ada",
+        lastName: "Lovelace",
+        sex: "F",
+        avatarUrl: "https://cdn.example/search-thumb.jpg",
+        avatarMediaId: "avatar-search",
+      },
+    ]);
   });
 });

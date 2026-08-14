@@ -4,7 +4,9 @@ import {
   addChild,
   createIndividual,
   createRelationship,
+  deleteMedia,
   getIndividual,
+  uploadIndividualMedia,
   updateIndividual,
   type IndividualDetail,
   type IndividualSummary,
@@ -94,6 +96,8 @@ const EMPTY_RELATION_OPEN: Record<ActionKey, boolean> = {
   childLink: false,
 }
 
+const AVATAR_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+
 function RelativeCreateForm({
   prefix,
   form,
@@ -178,6 +182,9 @@ export function PersonPanel({
   const [saveState, setSaveState] = useState<'idle' | 'saving'>('idle')
   const [childState, setChildState] = useState<'idle' | 'saving'>('idle')
   const [relationState, setRelationState] = useState<ActionKey | null>(null)
+  const [avatarState, setAvatarState] = useState<'idle' | 'uploading' | 'deleting'>(
+    'idle',
+  )
   const [isChildOpen, setIsChildOpen] = useState(false)
   const [relationOpen, setRelationOpen] =
     useState<Record<ActionKey, boolean>>(EMPTY_RELATION_OPEN)
@@ -262,6 +269,47 @@ export function PersonPanel({
     const fresh = await getIndividual(personId)
     setDetail(fresh)
     setForm(buildPersonForm(fresh))
+  }
+
+  async function handleAvatarInputChange(
+    event: FormEvent<HTMLInputElement>,
+  ): Promise<void> {
+    const input = event.currentTarget
+    const file = input.files?.[0]
+    input.value = ''
+    if (!file) return
+
+    if (!AVATAR_MIME_TYPES.includes(file.type)) {
+      setError('Поддерживаются только JPG, PNG и WEBP')
+      return
+    }
+
+    setAvatarState('uploading')
+    setError(null)
+    setInfoMessage(null)
+    try {
+      await uploadIndividualMedia(personId, file)
+      await refreshCurrentPerson()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Не удалось загрузить фото')
+    } finally {
+      setAvatarState('idle')
+    }
+  }
+
+  async function handleDeleteAvatar(): Promise<void> {
+    if (!detail?.avatarMediaId) return
+    setAvatarState('deleting')
+    setError(null)
+    setInfoMessage(null)
+    try {
+      await deleteMedia(detail.avatarMediaId)
+      await refreshCurrentPerson()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Не удалось удалить фото')
+    } finally {
+      setAvatarState('idle')
+    }
   }
 
   async function handleAddChild(event: FormEvent<HTMLFormElement>) {
@@ -425,12 +473,38 @@ export function PersonPanel({
       <div className="person-panel__header">
         <div className="person-panel__heading">
           <PersonAvatar
-            person={{ firstName: form.firstName, lastName: form.lastName, sex: form.sex }}
+            person={{
+              firstName: form.firstName,
+              lastName: form.lastName,
+              sex: form.sex,
+              avatarUrl: detail.avatarUrl,
+            }}
             size="md"
           />
-          <div>
+          <div className="person-panel__heading-copy">
             <p className="eyebrow">Карточка</p>
             <h2>{formatPersonName(detail)}</h2>
+            <div className="person-panel__avatar-tools">
+              <label className="btn btn-ghost person-panel__upload">
+                <input
+                  type="file"
+                  accept={AVATAR_MIME_TYPES.join(',')}
+                  onChange={(event) => void handleAvatarInputChange(event)}
+                  disabled={avatarState !== 'idle'}
+                />
+                {avatarState === 'uploading' ? 'Загружаем фото…' : 'Загрузить фото'}
+              </label>
+              {detail.avatarMediaId ? (
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => void handleDeleteAvatar()}
+                  disabled={avatarState !== 'idle'}
+                >
+                  {avatarState === 'deleting' ? 'Удаляем фото…' : 'Удалить фото'}
+                </button>
+              ) : null}
+            </div>
           </div>
         </div>
         <button type="button" className="btn btn-ghost person-panel__close" onClick={onClose}>

@@ -26,6 +26,29 @@
   min-width: 0;
 }
 
+.person-panel__heading-copy {
+  min-width: 0;
+}
+
+.person-panel__avatar-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.person-panel__upload {
+  position: relative;
+  overflow: hidden;
+}
+
+.person-panel__upload input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
 .person-panel__header h2,
 .person-panel__section h3 {
   margin: 0;

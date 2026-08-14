@@ -4,6 +4,7 @@ export type AvatarPerson = {
   firstName?: string
   lastName?: string
   sex?: string
+  avatarUrl?: string
 }
 
 function meaningfulPart(value?: string): string {

@@ -25,6 +25,8 @@ export class Individual {
   createdAt: Date;
   updatedAt: Date;
   relationships?: Array<{ type: string; node: unknown }>;
+  avatarUrl?: string;
+  avatarMediaId?: string;
 
   constructor() {
     this.id = uuidV4();
