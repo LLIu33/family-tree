@@ -1,5 +1,6 @@
 import type {
   AddChildInput,
+  CreateIndividualInput,
   IndividualDetail,
   IndividualSummary,
   UpdateIndividualInput,
@@ -31,7 +32,21 @@ export type ChildFormState = {
   birthDate: string
 }
 
+export type RelativeFormState = {
+  firstName: string
+  lastName: string
+  sex: string
+  birthDate: string
+}
+
 export const EMPTY_CHILD: ChildFormState = {
+  firstName: '',
+  lastName: '',
+  sex: 'U',
+  birthDate: '',
+}
+
+export const EMPTY_RELATIVE: RelativeFormState = {
   firstName: '',
   lastName: '',
   sex: 'U',
@@ -116,6 +131,15 @@ export function toSaveInput(form: PersonFormState): UpdateIndividualInput {
 }
 
 export function toChildInput(form: ChildFormState): AddChildInput {
+  return {
+    firstName: form.firstName.trim(),
+    lastName: form.lastName.trim(),
+    sex: form.sex,
+    birthDate: form.birthDate || undefined,
+  }
+}
+
+export function toRelativeInput(form: RelativeFormState): CreateIndividualInput {
   return {
     firstName: form.firstName.trim(),
     lastName: form.lastName.trim(),

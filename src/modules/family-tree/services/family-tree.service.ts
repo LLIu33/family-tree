@@ -808,7 +808,7 @@ export class FamilyTreeService {
           MATCH (f:Family {id: $familyId, treeId: $treeId})
           MERGE (parent)-[:${role}]->(f)
         `,
-        { parentId, familyId: childFamilyId },
+        { parentId, familyId: childFamilyId, treeId },
       );
       return;
     }
@@ -821,7 +821,7 @@ export class FamilyTreeService {
           MATCH (f:Family {id: $familyId, treeId: $treeId})
           MERGE (child)-[:CHILD]->(f)
         `,
-        { childId, familyId: parentFamilyId },
+        { childId, familyId: parentFamilyId, treeId },
       );
       return;
     }

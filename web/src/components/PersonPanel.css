@@ -38,7 +38,8 @@
 }
 
 .person-panel__form,
-.person-panel__child-form {
+.person-panel__child-form,
+.person-panel__mini-form {
   margin-bottom: 1.25rem;
 }
 
@@ -98,6 +99,58 @@
   margin-bottom: 1rem;
 }
 
+.person-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.9rem;
+}
+
+.person-panel__mini-form,
+.person-search-picker {
+  margin-top: 0.9rem;
+}
+
+.person-search-picker__state {
+  margin: 0.25rem 0 0;
+}
+
+.person-search-picker__results {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.person-search-picker__result {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.person-search-picker__result:hover {
+  border-color: rgba(44, 95, 78, 0.45);
+  box-shadow: 0 10px 24px rgba(26, 36, 32, 0.08);
+}
+
+.person-search-picker__result-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.person-search-picker__result-text span {
+  font-size: 0.92rem;
+}
+
 .person-panel .field textarea,
 .person-panel .field select {
   border: 1px solid var(--line);
@@ -131,5 +184,9 @@
 @media (max-width: 640px) {
   .person-panel__grid {
     grid-template-columns: 1fr;
+  }
+
+  .person-panel__actions {
+    flex-direction: column;
   }
 }

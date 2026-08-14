@@ -235,6 +235,12 @@
   box-shadow: 0 0 0 2px rgba(44, 95, 78, 0.25);
 }
 
+.tree-node.is-link-pick {
+  border-color: rgba(44, 95, 78, 0.82);
+  box-shadow: 0 0 0 3px rgba(44, 95, 78, 0.18);
+  background: rgba(44, 95, 78, 0.1);
+}
+
 .tree-node.is-dim {
   opacity: 0.42;
 }

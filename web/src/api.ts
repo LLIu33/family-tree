@@ -103,6 +103,14 @@ export interface AddChildInput {
   biography?: string
 }
 
+export type RelationshipType = 'PARENT' | 'CHILD' | 'SPOUSE'
+
+export interface CreateRelationshipInput {
+  fromIndividualId: string
+  toIndividualId: string
+  relationshipType: RelationshipType
+}
+
 export interface TreeRelationship {
   source: string
   target: string
@@ -292,6 +300,15 @@ export async function createIndividual(
   input: CreateIndividualInput,
 ): Promise<IndividualNode> {
   return request<IndividualNode>('/family-tree/individuals', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export async function createRelationship(
+  input: CreateRelationshipInput,
+): Promise<boolean> {
+  return request<boolean>('/family-tree/relationships', {
     method: 'POST',
     body: JSON.stringify(input),
   })

@@ -27,6 +27,9 @@ interface Props {
   relationships: TreeRelationship[]
   rootId?: string | null
   selectedId?: string | null
+  linkMode?: boolean
+  linkPickIds?: string[]
+  onLinkPick?: (id: string) => void
   onSelect?: (id: string) => void
 }
 
@@ -66,6 +69,9 @@ export function TreeCanvas({
   relationships,
   rootId,
   selectedId,
+  linkMode = false,
+  linkPickIds = [],
+  onLinkPick,
   onSelect,
 }: Props) {
   const viewportRef = useRef<HTMLDivElement>(null)
@@ -124,6 +130,7 @@ export function TreeCanvas({
     if (!q) return [] as LaidOutNode[]
     return laid.filter((n) => personMatchesQuery(n, q)).slice(0, 8)
   }, [laid, query])
+  const pickedIds = useMemo(() => new Set(linkPickIds), [linkPickIds])
 
   function centerOn(node: LaidOutNode, nextScale = transformRef.current.scale) {
     const viewport = viewportRef.current
@@ -216,6 +223,14 @@ export function TreeCanvas({
       focusedSelection.current = id
       centerOn(node)
     }
+  }
+
+  function activateNode(id: string) {
+    if (linkMode) {
+      onLinkPick?.(id)
+      return
+    }
+    selectAndFocus(id)
   }
 
   function onSearchSubmit(event: FormEvent) {
@@ -406,6 +421,7 @@ export function TreeCanvas({
               const isSelected = n.id === selectedId
               const isRoot = n.id === rootId
               const isDim = dimEdges && !hot.has(n.id)
+              const isLinkPick = pickedIds.has(n.id)
               return (
                 <foreignObject
                   key={n.id}
@@ -420,6 +436,7 @@ export function TreeCanvas({
                       'tree-node',
                       isRoot ? 'is-root' : '',
                       isSelected ? 'is-selected' : '',
+                      isLinkPick ? 'is-link-pick' : '',
                       isDim ? 'is-dim' : '',
                     ]
                       .filter(Boolean)
@@ -429,16 +446,16 @@ export function TreeCanvas({
                       .join(' · ')}
                     role="button"
                     tabIndex={0}
-                    aria-pressed={isSelected}
+                    aria-pressed={linkMode ? isLinkPick : isSelected}
                     onMouseEnter={() => setHoverId(n.id)}
                     onMouseLeave={() =>
                       setHoverId((current) => (current === n.id ? null : current))
                     }
-                    onClick={() => selectAndFocus(n.id)}
+                    onClick={() => activateNode(n.id)}
                     onKeyDown={(event) => {
                       if (event.key === 'Enter' || event.key === ' ') {
                         event.preventDefault()
-                        selectAndFocus(n.id)
+                        activateNode(n.id)
                       }
                     }}
                   >

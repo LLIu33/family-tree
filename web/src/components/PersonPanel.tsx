@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import {
   ApiError,
   addChild,
+  createIndividual,
+  createRelationship,
   getIndividual,
   updateIndividual,
   type IndividualDetail,
@@ -9,15 +11,19 @@ import {
 } from '../api'
 import {
   EMPTY_CHILD,
+  EMPTY_RELATIVE,
   buildPersonForm,
   formatPersonName,
   formatYears,
   toChildInput,
+  toRelativeInput,
   toSaveInput,
   type ChildFormState,
   type PersonFormState,
+  type RelativeFormState,
 } from './personPanel.helpers'
 import { PersonAvatar } from './PersonAvatar'
+import { PersonSearchPicker } from './PersonSearchPicker'
 import './PersonPanel.css'
 
 interface PersonPanelProps {
@@ -31,10 +37,12 @@ function RelativesSection({
   title,
   people,
   onOpenPerson,
+  children,
 }: {
   title: string
   people: IndividualSummary[]
   onOpenPerson: (id: string) => void
+  children?: ReactNode
 }) {
   return (
     <section className="person-panel__section">
@@ -59,7 +67,100 @@ function RelativesSection({
       ) : (
         <p className="muted person-panel__empty">Нет данных</p>
       )}
+      {children}
     </section>
+  )
+}
+
+type RelativeRole = 'spouse' | 'parent'
+type LinkRole = RelativeRole | 'child'
+type ActionKey =
+  | 'spouseCreate'
+  | 'spouseLink'
+  | 'parentCreate'
+  | 'parentLink'
+  | 'childLink'
+
+const EMPTY_RELATIVE_FORMS: Record<RelativeRole, RelativeFormState> = {
+  spouse: { ...EMPTY_RELATIVE },
+  parent: { ...EMPTY_RELATIVE },
+}
+
+const EMPTY_RELATION_OPEN: Record<ActionKey, boolean> = {
+  spouseCreate: false,
+  spouseLink: false,
+  parentCreate: false,
+  parentLink: false,
+  childLink: false,
+}
+
+function RelativeCreateForm({
+  prefix,
+  form,
+  isSaving,
+  submitLabel,
+  onChange,
+  onSubmit,
+}: {
+  prefix: string
+  form: RelativeFormState
+  isSaving: boolean
+  submitLabel: string
+  onChange: <K extends keyof RelativeFormState>(
+    key: K,
+    value: RelativeFormState[K],
+  ) => void
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void
+}) {
+  return (
+    <form className="person-panel__mini-form" onSubmit={onSubmit}>
+      <div className="person-panel__grid">
+        <div className="field">
+          <label htmlFor={`${prefix}-first-name`}>Имя</label>
+          <input
+            id={`${prefix}-first-name`}
+            value={form.firstName}
+            onChange={(event) => onChange('firstName', event.target.value)}
+            required
+          />
+        </div>
+        <div className="field">
+          <label htmlFor={`${prefix}-last-name`}>Фамилия</label>
+          <input
+            id={`${prefix}-last-name`}
+            value={form.lastName}
+            onChange={(event) => onChange('lastName', event.target.value)}
+            required
+          />
+        </div>
+      </div>
+      <div className="person-panel__grid">
+        <div className="field">
+          <label htmlFor={`${prefix}-sex`}>Пол</label>
+          <select
+            id={`${prefix}-sex`}
+            value={form.sex}
+            onChange={(event) => onChange('sex', event.target.value)}
+          >
+            <option value="M">Мужской</option>
+            <option value="F">Женский</option>
+            <option value="U">Не указан</option>
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor={`${prefix}-birth-date`}>Дата рождения</label>
+          <input
+            id={`${prefix}-birth-date`}
+            type="date"
+            value={form.birthDate}
+            onChange={(event) => onChange('birthDate', event.target.value)}
+          />
+        </div>
+      </div>
+      <button type="submit" className="btn" disabled={isSaving}>
+        {isSaving ? 'Сохраняем…' : submitLabel}
+      </button>
+    </form>
   )
 }
 
@@ -76,12 +177,27 @@ export function PersonPanel({
   const [error, setError] = useState<string | null>(null)
   const [saveState, setSaveState] = useState<'idle' | 'saving'>('idle')
   const [childState, setChildState] = useState<'idle' | 'saving'>('idle')
+  const [relationState, setRelationState] = useState<ActionKey | null>(null)
   const [isChildOpen, setIsChildOpen] = useState(false)
+  const [relationOpen, setRelationOpen] =
+    useState<Record<ActionKey, boolean>>(EMPTY_RELATION_OPEN)
+  const [relativeForms, setRelativeForms] =
+    useState<Record<RelativeRole, RelativeFormState>>(EMPTY_RELATIVE_FORMS)
   const [infoMessage, setInfoMessage] = useState<string | null>(null)
 
   const relatives = useMemo(
     () => detail?.relatives ?? { parents: [], spouses: [], children: [] },
     [detail],
+  )
+
+  const excludeIds = useMemo(
+    () => [
+      personId,
+      ...relatives.parents.map((person) => person.id),
+      ...relatives.spouses.map((person) => person.id),
+      ...relatives.children.map((person) => person.id),
+    ],
+    [personId, relatives],
   )
 
   useEffect(() => {
@@ -91,6 +207,9 @@ export function PersonPanel({
     setInfoMessage(null)
     setIsChildOpen(false)
     setChildForm(EMPTY_CHILD)
+    setRelationState(null)
+    setRelationOpen(EMPTY_RELATION_OPEN)
+    setRelativeForms(EMPTY_RELATIVE_FORMS)
 
     getIndividual(personId)
       .then((data) => {
@@ -130,15 +249,19 @@ export function PersonPanel({
 
     try {
       await updateIndividual(personId, toSaveInput(form))
-      await onTreeChanged()
-      const fresh = await getIndividual(personId)
-      setDetail(fresh)
-      setForm(buildPersonForm(fresh))
+      await refreshCurrentPerson()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Не удалось сохранить изменения')
     } finally {
       setSaveState('idle')
     }
+  }
+
+  async function refreshCurrentPerson() {
+    await onTreeChanged()
+    const fresh = await getIndividual(personId)
+    setDetail(fresh)
+    setForm(buildPersonForm(fresh))
   }
 
   async function handleAddChild(event: FormEvent<HTMLFormElement>) {
@@ -156,10 +279,7 @@ export function PersonPanel({
           'Ребёнок привязан только к выбранному родителю (несколько супругов)',
         )
       }
-      await onTreeChanged()
-      const fresh = await getIndividual(personId)
-      setDetail(fresh)
-      setForm(buildPersonForm(fresh))
+      await refreshCurrentPerson()
       setChildForm(EMPTY_CHILD)
       setIsChildOpen(false)
       if (!singleParentOnly) {
@@ -184,6 +304,103 @@ export function PersonPanel({
     value: ChildFormState[K],
   ) {
     setChildForm((current) => ({ ...current, [key]: value }))
+  }
+
+  function updateRelativeForm<K extends keyof RelativeFormState>(
+    role: RelativeRole,
+    key: K,
+    value: RelativeFormState[K],
+  ) {
+    setRelativeForms((current) => ({
+      ...current,
+      [role]: { ...current[role], [key]: value },
+    }))
+  }
+
+  function toggleRelation(key: ActionKey) {
+    setError(null)
+    setInfoMessage(null)
+    setRelationOpen((current) => ({ ...current, [key]: !current[key] }))
+  }
+
+  function buildRelationshipInput(role: LinkRole, otherPersonId: string) {
+    if (role === 'spouse') {
+      return {
+        fromIndividualId: personId,
+        toIndividualId: otherPersonId,
+        relationshipType: 'SPOUSE' as const,
+      }
+    }
+
+    if (role === 'parent') {
+      return {
+        fromIndividualId: otherPersonId,
+        toIndividualId: personId,
+        relationshipType: 'PARENT' as const,
+      }
+    }
+
+    return {
+      fromIndividualId: personId,
+      toIndividualId: otherPersonId,
+      relationshipType: 'PARENT' as const,
+    }
+  }
+
+  async function handleCreateRelative(
+    role: RelativeRole,
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault()
+    const actionKey = role === 'spouse' ? 'spouseCreate' : 'parentCreate'
+    setRelationState(actionKey)
+    setError(null)
+    setInfoMessage(null)
+
+    try {
+      const created = await createIndividual(toRelativeInput(relativeForms[role]))
+      await createRelationship(buildRelationshipInput(role, created.id))
+      await refreshCurrentPerson()
+      setRelativeForms((current) => ({
+        ...current,
+        [role]: { ...EMPTY_RELATIVE },
+      }))
+      setRelationOpen((current) => ({ ...current, [actionKey]: false }))
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err.message : 'Не удалось создать и привязать человека',
+      )
+    } finally {
+      setRelationState(null)
+    }
+  }
+
+  async function handleLinkRelative(
+    role: LinkRole,
+    person: { id: string; firstName?: string; lastName?: string },
+  ) {
+    const actionKey =
+      role === 'spouse'
+        ? 'spouseLink'
+        : role === 'parent'
+          ? 'parentLink'
+          : 'childLink'
+
+    setRelationState(actionKey)
+    setError(null)
+    setInfoMessage(null)
+
+    try {
+      await createRelationship(buildRelationshipInput(role, person.id))
+      await refreshCurrentPerson()
+      setRelationOpen((current) => ({ ...current, [actionKey]: false }))
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err.message : 'Не удалось привязать существующего человека',
+      )
+    } finally {
+      setRelationState(null)
+    }
   }
 
   if (loading || (error && !form)) {
@@ -304,14 +521,107 @@ export function PersonPanel({
         </button>
       </form>
 
-      <RelativesSection title="Родители" people={relatives.parents} onOpenPerson={onOpenPerson} />
-      <RelativesSection title="Супруг(и)" people={relatives.spouses} onOpenPerson={onOpenPerson} />
-      <RelativesSection title="Дети" people={relatives.children} onOpenPerson={onOpenPerson} />
+      <RelativesSection title="Родители" people={relatives.parents} onOpenPerson={onOpenPerson}>
+        <div className="person-panel__actions">
+          <button
+            type="button"
+            className="btn btn-ghost person-panel__toggle"
+            onClick={() => toggleRelation('parentCreate')}
+            disabled={relationState === 'parentLink'}
+          >
+            {relationOpen.parentCreate ? 'Скрыть создание' : 'Создать'}
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost person-panel__toggle"
+            onClick={() => toggleRelation('parentLink')}
+            disabled={relationState === 'parentCreate'}
+          >
+            {relationOpen.parentLink ? 'Скрыть поиск' : 'Выбрать'}
+          </button>
+        </div>
+        {relationOpen.parentCreate && (
+          <RelativeCreateForm
+            prefix="parent"
+            form={relativeForms.parent}
+            isSaving={relationState === 'parentCreate'}
+            submitLabel="Создать родителя"
+            onChange={(key, value) => updateRelativeForm('parent', key, value)}
+            onSubmit={(event) => handleCreateRelative('parent', event)}
+          />
+        )}
+        {relationOpen.parentLink && (
+          <PersonSearchPicker
+            excludeIds={excludeIds}
+            disabled={relationState === 'parentLink'}
+            onSelect={(person) => void handleLinkRelative('parent', person)}
+          />
+        )}
+      </RelativesSection>
 
-      <section className="person-panel__section">
-        <button type="button" className="btn btn-ghost person-panel__toggle" onClick={() => setIsChildOpen((value) => !value)}>
-          Добавить ребёнка
-        </button>
+      <RelativesSection title="Супруг(и)" people={relatives.spouses} onOpenPerson={onOpenPerson}>
+        <div className="person-panel__actions">
+          <button
+            type="button"
+            className="btn btn-ghost person-panel__toggle"
+            onClick={() => toggleRelation('spouseCreate')}
+            disabled={relationState === 'spouseLink'}
+          >
+            {relationOpen.spouseCreate ? 'Скрыть создание' : 'Создать'}
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost person-panel__toggle"
+            onClick={() => toggleRelation('spouseLink')}
+            disabled={relationState === 'spouseCreate'}
+          >
+            {relationOpen.spouseLink ? 'Скрыть поиск' : 'Выбрать'}
+          </button>
+        </div>
+        {relationOpen.spouseCreate && (
+          <RelativeCreateForm
+            prefix="spouse"
+            form={relativeForms.spouse}
+            isSaving={relationState === 'spouseCreate'}
+            submitLabel="Создать супруга"
+            onChange={(key, value) => updateRelativeForm('spouse', key, value)}
+            onSubmit={(event) => handleCreateRelative('spouse', event)}
+          />
+        )}
+        {relationOpen.spouseLink && (
+          <PersonSearchPicker
+            excludeIds={excludeIds}
+            disabled={relationState === 'spouseLink'}
+            onSelect={(person) => void handleLinkRelative('spouse', person)}
+          />
+        )}
+      </RelativesSection>
+
+      <RelativesSection title="Дети" people={relatives.children} onOpenPerson={onOpenPerson}>
+        <div className="person-panel__actions">
+          <button
+            type="button"
+            className="btn btn-ghost person-panel__toggle"
+            onClick={() => setIsChildOpen((value) => !value)}
+          >
+            {isChildOpen ? 'Скрыть форму ребёнка' : 'Добавить ребёнка'}
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost person-panel__toggle"
+            onClick={() => toggleRelation('childLink')}
+            disabled={childState === 'saving'}
+          >
+            {relationOpen.childLink ? 'Скрыть поиск' : 'Привязать существующего'}
+          </button>
+        </div>
+        {relationOpen.childLink && (
+          <PersonSearchPicker
+            excludeIds={excludeIds}
+            disabled={relationState === 'childLink'}
+            onSelect={(person) => void handleLinkRelative('child', person)}
+          />
+        )}
         {isChildOpen && (
           <form className="person-panel__child-form" onSubmit={handleAddChild}>
             <div className="field">
@@ -339,7 +649,7 @@ export function PersonPanel({
             </button>
           </form>
         )}
-      </section>
+      </RelativesSection>
     </aside>
   )
 }

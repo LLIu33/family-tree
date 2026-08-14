@@ -88,6 +88,61 @@ describe("FamilyTreeService relationships (Family hub)", () => {
     expect(linkQuery?.query).not.toContain("[:SPOUSE]");
   });
 
+  it("links parent to existing child family with treeId", async () => {
+    jest
+      .spyOn(service, "getIndividual")
+      .mockResolvedValueOnce(individual("p1", Sex.MALE) as any)
+      .mockResolvedValueOnce(individual("c1", Sex.UNKNOWN) as any);
+
+    neo4j.read
+      .mockResolvedValueOnce({ records: [] })
+      .mockResolvedValueOnce({
+        records: [
+          { get: (k: string) => (k === "familyId" ? "FAM-CHILD" : null) },
+        ],
+      });
+
+    await service.createRelationship("tree-1", {
+      fromIndividualId: "p1",
+      toIndividualId: "c1",
+      relationshipType: RelationType.PARENT,
+    });
+
+    expect(neo4j.write).toHaveBeenCalledWith(
+      expect.stringContaining("MERGE (parent)-[:HUSBAND]->(f)"),
+      { parentId: "p1", familyId: "FAM-CHILD", treeId: "tree-1" },
+    );
+    expect(neo4j.executeTransaction).not.toHaveBeenCalled();
+  });
+
+  it("links child to existing parent spouse family with treeId", async () => {
+    jest
+      .spyOn(service, "getIndividual")
+      .mockResolvedValueOnce(individual("p1", Sex.MALE) as any)
+      .mockResolvedValueOnce(individual("c1", Sex.UNKNOWN) as any);
+
+    neo4j.read
+      .mockResolvedValueOnce({ records: [] })
+      .mockResolvedValueOnce({ records: [] })
+      .mockResolvedValueOnce({
+        records: [
+          { get: (k: string) => (k === "familyId" ? "FAM-PARENT" : null) },
+        ],
+      });
+
+    await service.createRelationship("tree-1", {
+      fromIndividualId: "p1",
+      toIndividualId: "c1",
+      relationshipType: RelationType.PARENT,
+    });
+
+    expect(neo4j.write).toHaveBeenCalledWith(
+      expect.stringContaining("MERGE (child)-[:CHILD]->(f)"),
+      { childId: "c1", familyId: "FAM-PARENT", treeId: "tree-1" },
+    );
+    expect(neo4j.executeTransaction).not.toHaveBeenCalled();
+  });
+
   it("rejects unsupported relationship types", async () => {
     await expect(
       service.createRelationship("tree-1", {
