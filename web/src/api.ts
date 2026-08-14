@@ -85,6 +85,13 @@ export interface UpdateIndividualInput {
   biography?: string | null
 }
 
+export interface CreateIndividualInput {
+  firstName: string
+  lastName: string
+  sex: string
+  birthDate?: string
+}
+
 export interface AddChildInput {
   firstName: string
   lastName: string
@@ -279,6 +286,15 @@ export async function searchIndividuals(
   if (q.trim()) params.set('q', q.trim())
   params.set('limit', String(limit))
   return request<IndividualNode[]>(`/family-tree/individuals?${params}`)
+}
+
+export async function createIndividual(
+  input: CreateIndividualInput,
+): Promise<IndividualNode> {
+  return request<IndividualNode>('/family-tree/individuals', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
 }
 
 export async function getIndividual(id: string): Promise<IndividualDetail> {

@@ -3,12 +3,32 @@
 }
 
 .field-hint {
-  margin: 1rem 0 0;
+  margin: 0;
   font-size: 0.9rem;
+}
+
+.tree-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  margin-top: 1.25rem;
+  flex-wrap: wrap;
 }
 
 .pick-note {
   margin-top: 1.25rem;
+}
+
+.pick-note p {
+  margin: 0;
+}
+
+.tree-empty-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
 }
 
 .canvas-wrap {
@@ -30,6 +50,16 @@
 
 @media (max-width: 900px) {
   .tree-layout {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 640px) {
+  .tree-toolbar {
+    align-items: stretch;
+  }
+
+  .tree-empty-actions {
     flex-direction: column;
   }
 }

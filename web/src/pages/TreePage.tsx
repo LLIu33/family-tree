@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { ApiError, getFullGraph } from '../api'
 import type { IndividualNode, TreeRelationship } from '../api'
 import { AppNav } from '../components/AppNav'
+import { CreatePersonForm } from '../components/CreatePersonForm'
 import { PersonPanel } from '../components/PersonPanel'
 import { TreeCanvas } from '../components/TreeCanvas'
 import './TreePage.css'
@@ -14,13 +16,22 @@ export function TreePage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [isCreateOpen, setIsCreateOpen] = useState(false)
 
   async function refreshGraph() {
-    const data = await getFullGraph()
-    setNodes(data.nodes ?? [])
-    setRelationships(data.relationships ?? [])
-    setRootId(data.rootId)
-    setComponentCount(data.componentCount ?? 0)
+    try {
+      setError(null)
+      const data = await getFullGraph()
+      setNodes(data.nodes ?? [])
+      setRelationships(data.relationships ?? [])
+      setRootId(data.rootId)
+      setComponentCount(data.componentCount ?? 0)
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err.message : 'Не удалось загрузить древо',
+      )
+      throw err
+    }
   }
 
   useEffect(() => {
@@ -62,27 +73,51 @@ export function TreePage() {
         <p className="eyebrow">Визуализация</p>
         <h1 className="brand">Карта</h1>
         <p className="lede">
-          Показываем всё ваше семейное древо. Если в данных несколько отдельных
-          веток, берём самую большую.
+          Показываем всё ваше семейное древо, включая отдельные ветки, если они
+          есть.
         </p>
 
         {loading && <p className="muted">Загружаем визуализацию…</p>}
         {error && <p className="error">{error}</p>}
 
-        {!loading && !error && nodes.length === 0 && (
-          <p className="muted pick-note">
-            В древе пока никого нет. Импортируйте GEDCOM на странице «Импорт».
-          </p>
+        {!loading && (nodes.length > 0 || !error) && (
+          <div className="tree-toolbar">
+            <button
+              type="button"
+              className="btn"
+              onClick={() => setIsCreateOpen(true)}
+            >
+              Добавить человека
+            </button>
+            {nodes.length > 0 && (
+              <p className="muted field-hint">
+                Людей: {nodes.length}
+                {componentCount > 1 ? ` · отдельных веток: ${componentCount}` : ''}
+              </p>
+            )}
+          </div>
         )}
 
-        {!loading && !error && nodes.length > 0 && (
+        {!loading && !error && nodes.length === 0 && (
+          <div className="pick-note">
+            <p className="muted">В древе пока никого нет.</p>
+            <div className="tree-empty-actions">
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setIsCreateOpen(true)}
+              >
+                Добавить человека
+              </button>
+              <Link className="btn btn-ghost" to="/import">
+                Импорт GEDCOM
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {!loading && nodes.length > 0 && (
           <>
-            <p className="muted field-hint">
-              Людей: {nodes.length}
-              {componentCount > 1
-                ? ` · отдельных веток: ${componentCount} (показана первая/крупнейшая)`
-                : ''}
-            </p>
             <div className="tree-layout">
               <div className="canvas-wrap">
                 <TreeCanvas
@@ -104,6 +139,16 @@ export function TreePage() {
             </div>
           </>
         )}
+
+        <CreatePersonForm
+          open={isCreateOpen}
+          onClose={() => setIsCreateOpen(false)}
+          onCreated={async (id) => {
+            await refreshGraph()
+            setSelectedId(id)
+            setIsCreateOpen(false)
+          }}
+        />
       </main>
     </div>
   )

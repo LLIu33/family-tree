@@ -317,3 +317,67 @@ describe("FamilyTreeService addChild", () => {
     ).rejects.toThrow(NotFoundException);
   });
 });
+
+describe("FamilyTreeService getFullGraph", () => {
+  let service: FamilyTreeService;
+  let neo4j: { read: jest.Mock; write: jest.Mock; executeTransaction: jest.Mock };
+
+  const node = (id: string, firstName: string) => ({
+    identity: id,
+    labels: ["Individual"],
+    properties: {
+      id,
+      gedcomId: id,
+      firstName,
+      lastName: "Test",
+      sex: "U",
+    },
+  });
+
+  const recordOf = (neo4jNode: ReturnType<typeof node>) => ({
+    get: (key: string) => {
+      if (key === "i") return neo4jNode;
+      return null;
+    },
+  });
+
+  beforeEach(() => {
+    jest.restoreAllMocks();
+    neo4j = {
+      read: jest.fn(),
+      write: jest.fn(),
+      executeTransaction: jest.fn(),
+    };
+    service = new FamilyTreeService(neo4j as unknown as Neo4jService);
+    jest.spyOn(service as any, "ensureTreeHasData").mockResolvedValue(undefined);
+  });
+
+  it("returns isolated people and every component, not only the largest", async () => {
+    // people: A-B family (2) + isolate C
+    neo4j.read
+      .mockResolvedValueOnce({
+        records: [
+          recordOf(node("A", "Ann")),
+          recordOf(node("B", "Bob")),
+          recordOf(node("C", "Cat")),
+        ],
+      })
+      .mockResolvedValueOnce({
+        records: [
+          {
+            get: (k: string) =>
+              ({ source: "A", target: "B", familyId: "F1" } as Record<
+                string,
+                string
+              >)[k],
+          },
+        ],
+      }) // parent-child
+      .mockResolvedValueOnce({ records: [] }); // spouses
+
+    const graph = await service.getFullGraph("tree-1");
+    expect(graph.nodes.map((n) => n.id).sort()).toEqual(["A", "B", "C"]);
+    expect(graph.componentCount).toBeGreaterThanOrEqual(2);
+    expect(graph.relationships).toHaveLength(1);
+  });
+});

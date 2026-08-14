@@ -195,7 +195,8 @@ export class FamilyTreeService {
 
   /**
    * Full graph for the user's tree (all people + parent/spouse edges).
-   * If several disconnected components exist, returns the largest (first by size).
+   * Returns every individual and relationship in the tree, including
+   * isolated people and all disconnected components.
    */
   async getFullGraph(treeId: string): Promise<{
     nodes: Individual[];
@@ -271,12 +272,8 @@ export class FamilyTreeService {
       allNodes.map((n) => n.id),
       allRels,
     );
-    const primary = components[0] || allNodes.map((n) => n.id);
-    const idSet = new Set(primary);
-    const nodes = allNodes.filter((n) => idSet.has(n.id));
-    const relationships = allRels.filter(
-      (r) => idSet.has(r.source) && idSet.has(r.target),
-    );
+    const nodes = allNodes;
+    const relationships = allRels;
 
     // Layout root: oldest generation (no parents in graph). Prefer named people
     // with the most children so we don't land on placeholder "Unknown Unknown".

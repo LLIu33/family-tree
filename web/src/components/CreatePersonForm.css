@@ -1,0 +1,73 @@
+.create-person-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(26, 36, 32, 0.22);
+  backdrop-filter: blur(4px);
+}
+
+.create-person {
+  width: min(560px, 100%);
+  padding: 1rem 1.1rem 1.15rem;
+}
+
+.create-person__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.create-person__header .eyebrow {
+  margin-bottom: 0.35rem;
+}
+
+.create-person__header h2 {
+  margin: 0;
+  font-family: var(--font-display);
+}
+
+.create-person__close {
+  flex-shrink: 0;
+}
+
+.create-person__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.create-person .field select {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.7rem 0.85rem;
+  background: rgba(255, 255, 255, 0.65);
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.create-person .field select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(44, 95, 78, 0.15);
+}
+
+.create-person__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+@media (max-width: 640px) {
+  .create-person__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .create-person__actions {
+    flex-direction: column-reverse;
+  }
+}
