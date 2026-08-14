@@ -14,13 +14,12 @@ export function AppNav() {
     <header className="top-nav fade-in">
       <Link to="/" className="brand brand-mark" style={{ textDecoration: 'none', color: 'inherit' }}>
         Древо
-        <span>древо</span>
       </Link>
       <nav>
         <NavLink to="/" end>
           Домой
         </NavLink>
-        <NavLink to="/tree">Древо</NavLink>
+        <NavLink to="/tree">Карта</NavLink>
         <NavLink to="/import">Импорт</NavLink>
         {user && <span className="muted">{user.name || user.email}</span>}
         <button type="button" className="btn btn-ghost" onClick={logout}>

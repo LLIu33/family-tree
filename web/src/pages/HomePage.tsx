@@ -28,7 +28,7 @@ export function HomePage() {
         </div>
 
         <p className="home-note muted">
-          После импорта GEDCOM откройте «Древо» — покажется всё древо целиком.
+          После импорта GEDCOM откройте «Карта» — покажется всё древо целиком.
         </p>
       </main>
     </div>

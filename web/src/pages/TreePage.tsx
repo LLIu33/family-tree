@@ -60,7 +60,7 @@ export function TreePage() {
       <AppNav />
       <main className="page tree-page fade-in">
         <p className="eyebrow">Визуализация</p>
-        <h1 className="brand">Древо</h1>
+        <h1 className="brand">Карта</h1>
         <p className="lede">
           Показываем всё ваше семейное древо. Если в данных несколько отдельных
           веток, берём самую большую.

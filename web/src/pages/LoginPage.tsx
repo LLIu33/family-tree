@@ -56,7 +56,7 @@ export function LoginPage() {
           <p className="eyebrow">Семейный архив</p>
           <h1 className="brand brand-hero">
             Древо
-            <span> · семейное древо</span>
+            <span> · семейный архив</span>
           </h1>
           <p className="lede">
             Имена, ветви и связи — в одном месте, спокойно и по-человечески.
