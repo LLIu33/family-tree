@@ -114,7 +114,11 @@ Notes:
 | `npm run start:dev` | Nest watch mode |
 | `npm run build` | `nest build` |
 | `npm run test` | Jest unit tests |
-| `npm run lint` | Typecheck (`tsc --noEmit`) |
+| `npm run test:cov` | Jest with coverage report (`coverage/`) |
+| `npm run lint` | ESLint + typecheck (`tsc --noEmit`) |
+| `npm run typecheck` | `tsc --noEmit` |
+
+CI runs on PRs and pushes to `main` (see [docs/dev/ci.md](docs/dev/ci.md)).
 
 ## Current limitations
 

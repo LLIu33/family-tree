@@ -2,6 +2,8 @@
 
 Стек: NestJS API (`src/`), граф Neo4j, веб на Vite + React (`web/`). Локально API и Neo4j поднимаются через Docker Compose; веб — отдельно (`web/`, порт 5173). Публичное демо: [deploy/DEMO.md](../deploy/DEMO.md).
 
+CI: [ci.md](ci.md) — lint, typecheck, test/coverage, build на PR и `main`.
+
 ## Компоненты
 
 | Часть | Роль |

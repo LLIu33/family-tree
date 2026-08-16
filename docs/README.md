@@ -18,6 +18,7 @@
 ### Документация для разработчиков (`dev/`)
 
 - [Архитектура](dev/architecture.md) — Nest, Neo4j, web, `treeId`
+- [CI](dev/ci.md) — GitHub Actions, coverage, локальные команды
 - [Аутентификация](dev/auth.md) — register/login/me, JWT, switch
 - [Модель графа](dev/graph-model.md) — Individual, Family, связи
 - [API](dev/api.md) — группы маршрутов и роли
