@@ -13,3 +13,6 @@ web/dist
 
 # Jest
 coverage/
+
+# Local agent / brainstorm scratch
+.superpowers/
