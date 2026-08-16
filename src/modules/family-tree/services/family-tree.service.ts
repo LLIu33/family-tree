@@ -22,6 +22,7 @@ import {
   IndividualSummary,
 } from "../interfaces/individual-summary.interface";
 import { Media } from "../entities/media.entity";
+import { TreeRole } from "../../trees/enums/tree-role.enum";
 
 const MAX_GENERATIONS = 10;
 type AvatarInfo = { avatarUrl?: string; avatarMediaId?: string };
@@ -171,8 +172,9 @@ export class FamilyTreeService {
     treeId: string,
     queryText = "",
     limit = 20,
+    role?: TreeRole,
   ): Promise<Individual[]> {
-    await this.ensureTreeHasData(treeId);
+    await this.ensureTreeHasData(treeId, role);
     const capped = Math.min(Math.max(Number(limit) || 20, 1), 50);
     const q = queryText.trim().toLowerCase();
 
@@ -207,7 +209,10 @@ export class FamilyTreeService {
    * Returns every individual and relationship in the tree, including
    * isolated people and all disconnected components.
    */
-  async getFullGraph(treeId: string): Promise<{
+  async getFullGraph(
+    treeId: string,
+    role?: TreeRole,
+  ): Promise<{
     nodes: Individual[];
     relationships: Array<{
       source: string;
@@ -218,7 +223,7 @@ export class FamilyTreeService {
     rootId: string | null;
     componentCount: number;
   }> {
-    await this.ensureTreeHasData(treeId);
+    await this.ensureTreeHasData(treeId, role);
 
     const peopleResult = await this.neo4jService.read(
       `
@@ -329,8 +334,13 @@ export class FamilyTreeService {
     return meaningful(first) || meaningful(last);
   }
 
-  /** If the user's tree is empty, claim legacy nodes imported without treeId. */
-  private async ensureTreeHasData(treeId: string): Promise<void> {
+  /** If the owner's tree is empty, claim legacy nodes imported without treeId. */
+  private async ensureTreeHasData(
+    treeId: string,
+    role?: TreeRole,
+  ): Promise<void> {
+    if (role !== TreeRole.OWNER) return;
+
     const owned = await this.neo4jService.read(
       `MATCH (i:Individual {treeId: $treeId}) RETURN count(i) AS c`,
       { treeId },

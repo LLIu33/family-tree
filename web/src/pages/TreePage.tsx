@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ApiError, createRelationship, getFullGraph } from '../api'
+import { ApiError, canWriteTree, createRelationship, getFullGraph } from '../api'
 import type { IndividualNode, TreeRelationship } from '../api'
 import { AppNav } from '../components/AppNav'
 import { CreatePersonForm } from '../components/CreatePersonForm'
@@ -40,6 +40,7 @@ function linkLabel(
 }
 
 export function TreePage() {
+  const canWrite = canWriteTree()
   const [nodes, setNodes] = useState<IndividualNode[]>([])
   const [relationships, setRelationships] = useState<TreeRelationship[]>([])
   const [rootId, setRootId] = useState<string | null>(null)
@@ -199,21 +200,25 @@ export function TreePage() {
         {!loading && (nodes.length > 0 || !error) && (
           <div className="tree-toolbar">
             <div className="tree-toolbar__actions">
-              <button
-                type="button"
-                className="btn"
-                onClick={() => setIsCreateOpen(true)}
-                disabled={isLinkMode}
-              >
-                Добавить человека
-              </button>
-              <button
-                type="button"
-                className={`btn ${isLinkMode ? 'btn-ghost' : ''}`}
-                onClick={() => (isLinkMode ? cancelLinkMode() : startLinkMode())}
-              >
-                {isLinkMode ? 'Отменить связь' : 'Связать'}
-              </button>
+              {canWrite && (
+                <>
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => setIsCreateOpen(true)}
+                    disabled={isLinkMode}
+                  >
+                    Добавить человека
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn ${isLinkMode ? 'btn-ghost' : ''}`}
+                    onClick={() => (isLinkMode ? cancelLinkMode() : startLinkMode())}
+                  >
+                    {isLinkMode ? 'Отменить связь' : 'Связать'}
+                  </button>
+                </>
+              )}
             </div>
             {nodes.length > 0 && (
               <p className="muted field-hint">
@@ -317,18 +322,20 @@ export function TreePage() {
         {!loading && !error && nodes.length === 0 && (
           <div className="pick-note">
             <p className="muted">В древе пока никого нет.</p>
-            <div className="tree-empty-actions">
-              <button
-                type="button"
-                className="btn"
-                onClick={() => setIsCreateOpen(true)}
-              >
-                Добавить человека
-              </button>
-              <Link className="btn btn-ghost" to="/import">
-                Импорт GEDCOM
-              </Link>
-            </div>
+            {canWrite && (
+              <div className="tree-empty-actions">
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setIsCreateOpen(true)}
+                >
+                  Добавить человека
+                </button>
+                <Link className="btn btn-ghost" to="/import">
+                  Импорт GEDCOM
+                </Link>
+              </div>
+            )}
           </div>
         )}
 
@@ -359,15 +366,17 @@ export function TreePage() {
           </>
         )}
 
-        <CreatePersonForm
-          open={isCreateOpen}
-          onClose={() => setIsCreateOpen(false)}
-          onCreated={async (id) => {
-            await refreshGraph()
-            setSelectedId(id)
-            setIsCreateOpen(false)
-          }}
-        />
+        {canWrite && (
+          <CreatePersonForm
+            open={isCreateOpen}
+            onClose={() => setIsCreateOpen(false)}
+            onCreated={async (id) => {
+              await refreshGraph()
+              setSelectedId(id)
+              setIsCreateOpen(false)
+            }}
+          />
+        )}
       </main>
     </div>
   )

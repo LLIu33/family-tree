@@ -1,7 +1,10 @@
+import { TreeRole } from "../../trees/enums/tree-role.enum";
+
 export interface JwtPayload {
   sub: string;
   email: string;
   treeId: string;
+  role: TreeRole;
 }
 
 export interface AuthUser {
@@ -10,4 +13,5 @@ export interface AuthUser {
   treeId: string;
   treeName: string;
   name: string;
+  role: TreeRole;
 }

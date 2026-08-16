@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 're
 import {
   ApiError,
   addChild,
+  canWriteTree,
   createIndividual,
   createRelationship,
   deleteMedia,
@@ -174,6 +175,7 @@ export function PersonPanel({
   onOpenPerson,
   onTreeChanged,
 }: PersonPanelProps) {
+  const canWrite = canWriteTree()
   const [detail, setDetail] = useState<IndividualDetail | null>(null)
   const [form, setForm] = useState<PersonFormState | null>(null)
   const [childForm, setChildForm] = useState<ChildFormState>(EMPTY_CHILD)
@@ -250,7 +252,7 @@ export function PersonPanel({
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!form) return
+    if (!form || !canWrite) return
     setSaveState('saving')
     setError(null)
 
@@ -485,16 +487,18 @@ export function PersonPanel({
             <p className="eyebrow">Карточка</p>
             <h2>{formatPersonName(detail)}</h2>
             <div className="person-panel__avatar-tools">
-              <label className="btn btn-ghost person-panel__upload">
-                <input
-                  type="file"
-                  accept={AVATAR_MIME_TYPES.join(',')}
-                  onChange={(event) => void handleAvatarInputChange(event)}
-                  disabled={avatarState !== 'idle'}
-                />
-                {avatarState === 'uploading' ? 'Загружаем фото…' : 'Загрузить фото'}
-              </label>
-              {detail.avatarMediaId ? (
+              {canWrite && (
+                <label className="btn btn-ghost person-panel__upload">
+                  <input
+                    type="file"
+                    accept={AVATAR_MIME_TYPES.join(',')}
+                    onChange={(event) => void handleAvatarInputChange(event)}
+                    disabled={avatarState !== 'idle'}
+                  />
+                  {avatarState === 'uploading' ? 'Загружаем фото…' : 'Загрузить фото'}
+                </label>
+              )}
+              {canWrite && detail.avatarMediaId ? (
                 <button
                   type="button"
                   className="btn btn-ghost"
@@ -519,26 +523,26 @@ export function PersonPanel({
         <div className="person-panel__grid">
           <div className="field">
             <label htmlFor="person-first-name">Имя</label>
-            <input id="person-first-name" value={form.firstName} onChange={(e) => updateForm('firstName', e.target.value)} />
+            <input id="person-first-name" value={form.firstName} onChange={(e) => updateForm('firstName', e.target.value)} readOnly={!canWrite} />
           </div>
           <div className="field">
             <label htmlFor="person-last-name">Фамилия</label>
-            <input id="person-last-name" value={form.lastName} onChange={(e) => updateForm('lastName', e.target.value)} />
+            <input id="person-last-name" value={form.lastName} onChange={(e) => updateForm('lastName', e.target.value)} readOnly={!canWrite} />
           </div>
         </div>
         <div className="person-panel__grid">
           <div className="field">
             <label htmlFor="person-name-prefix">Префикс / звание</label>
-            <input id="person-name-prefix" value={form.namePrefix} onChange={(e) => updateForm('namePrefix', e.target.value)} />
+            <input id="person-name-prefix" value={form.namePrefix} onChange={(e) => updateForm('namePrefix', e.target.value)} readOnly={!canWrite} />
           </div>
           <div className="field">
             <label htmlFor="person-married-name">Фамилия в браке</label>
-            <input id="person-married-name" value={form.marriedName} onChange={(e) => updateForm('marriedName', e.target.value)} />
+            <input id="person-married-name" value={form.marriedName} onChange={(e) => updateForm('marriedName', e.target.value)} readOnly={!canWrite} />
           </div>
         </div>
         <div className="field">
           <label htmlFor="person-sex">Пол</label>
-          <select id="person-sex" value={form.sex} onChange={(e) => updateForm('sex', e.target.value)}>
+          <select id="person-sex" value={form.sex} onChange={(e) => updateForm('sex', e.target.value)} disabled={!canWrite}>
             <option value="M">Мужской</option>
             <option value="F">Женский</option>
             <option value="U">Не указан</option>
@@ -547,181 +551,195 @@ export function PersonPanel({
         <div className="person-panel__grid">
           <div className="field">
             <label htmlFor="person-birth-date">Дата рождения</label>
-            <input id="person-birth-date" type="date" value={form.birthDate} onChange={(e) => updateForm('birthDate', e.target.value)} />
+            <input id="person-birth-date" type="date" value={form.birthDate} onChange={(e) => updateForm('birthDate', e.target.value)} readOnly={!canWrite} />
           </div>
           <div className="field">
             <label htmlFor="person-death-date">Дата смерти</label>
-            <input id="person-death-date" type="date" value={form.deathDate} onChange={(e) => updateForm('deathDate', e.target.value)} />
+            <input id="person-death-date" type="date" value={form.deathDate} onChange={(e) => updateForm('deathDate', e.target.value)} readOnly={!canWrite} />
           </div>
         </div>
         <div className="field">
           <label htmlFor="person-birth-place">Место рождения</label>
-          <input id="person-birth-place" value={form.birthPlace} onChange={(e) => updateForm('birthPlace', e.target.value)} />
+          <input id="person-birth-place" value={form.birthPlace} onChange={(e) => updateForm('birthPlace', e.target.value)} readOnly={!canWrite} />
         </div>
         <div className="field">
           <label htmlFor="person-death-place">Место смерти</label>
-          <input id="person-death-place" value={form.deathPlace} onChange={(e) => updateForm('deathPlace', e.target.value)} />
+          <input id="person-death-place" value={form.deathPlace} onChange={(e) => updateForm('deathPlace', e.target.value)} readOnly={!canWrite} />
         </div>
         <div className="field">
           <label htmlFor="person-death-cause">Причина смерти</label>
-          <input id="person-death-cause" value={form.deathCause} onChange={(e) => updateForm('deathCause', e.target.value)} />
+          <input id="person-death-cause" value={form.deathCause} onChange={(e) => updateForm('deathCause', e.target.value)} readOnly={!canWrite} />
         </div>
         <div className="field">
           <label htmlFor="person-burial-place">Место захоронения</label>
-          <input id="person-burial-place" value={form.burialPlace} onChange={(e) => updateForm('burialPlace', e.target.value)} />
+          <input id="person-burial-place" value={form.burialPlace} onChange={(e) => updateForm('burialPlace', e.target.value)} readOnly={!canWrite} />
         </div>
         <div className="field">
           <label htmlFor="person-occupation">Профессия</label>
-          <input id="person-occupation" value={form.occupation} onChange={(e) => updateForm('occupation', e.target.value)} />
+          <input id="person-occupation" value={form.occupation} onChange={(e) => updateForm('occupation', e.target.value)} readOnly={!canWrite} />
         </div>
         <div className="field">
           <label htmlFor="person-retirement">Отставка / пенсия</label>
-          <input id="person-retirement" value={form.retirementNote} onChange={(e) => updateForm('retirementNote', e.target.value)} />
+          <input id="person-retirement" value={form.retirementNote} onChange={(e) => updateForm('retirementNote', e.target.value)} readOnly={!canWrite} />
         </div>
         <div className="field">
           <label htmlFor="person-email">Email</label>
-          <input id="person-email" type="text" value={form.email} onChange={(e) => updateForm('email', e.target.value)} />
+          <input id="person-email" type="text" value={form.email} onChange={(e) => updateForm('email', e.target.value)} readOnly={!canWrite} />
         </div>
         <div className="field">
           <label htmlFor="person-extra-events">Доп. события</label>
-          <textarea id="person-extra-events" rows={3} value={form.extraEvents} onChange={(e) => updateForm('extraEvents', e.target.value)} />
+          <textarea id="person-extra-events" rows={3} value={form.extraEvents} onChange={(e) => updateForm('extraEvents', e.target.value)} readOnly={!canWrite} />
         </div>
         <div className="field">
           <label htmlFor="person-biography">Заметки</label>
-          <textarea id="person-biography" rows={5} value={form.biography} onChange={(e) => updateForm('biography', e.target.value)} />
+          <textarea id="person-biography" rows={5} value={form.biography} onChange={(e) => updateForm('biography', e.target.value)} readOnly={!canWrite} />
         </div>
-        <button type="submit" className="btn" disabled={saveState === 'saving'}>
-          {saveState === 'saving' ? 'Сохраняем…' : 'Сохранить'}
-        </button>
+        {canWrite && (
+          <button type="submit" className="btn" disabled={saveState === 'saving'}>
+            {saveState === 'saving' ? 'Сохраняем…' : 'Сохранить'}
+          </button>
+        )}
       </form>
 
       <RelativesSection title="Родители" people={relatives.parents} onOpenPerson={onOpenPerson}>
-        <div className="person-panel__actions">
-          <button
-            type="button"
-            className="btn btn-ghost person-panel__toggle"
-            onClick={() => toggleRelation('parentCreate')}
-            disabled={relationState === 'parentLink'}
-          >
-            {relationOpen.parentCreate ? 'Скрыть создание' : 'Создать'}
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost person-panel__toggle"
-            onClick={() => toggleRelation('parentLink')}
-            disabled={relationState === 'parentCreate'}
-          >
-            {relationOpen.parentLink ? 'Скрыть поиск' : 'Выбрать'}
-          </button>
-        </div>
-        {relationOpen.parentCreate && (
-          <RelativeCreateForm
-            prefix="parent"
-            form={relativeForms.parent}
-            isSaving={relationState === 'parentCreate'}
-            submitLabel="Создать родителя"
-            onChange={(key, value) => updateRelativeForm('parent', key, value)}
-            onSubmit={(event) => handleCreateRelative('parent', event)}
-          />
-        )}
-        {relationOpen.parentLink && (
-          <PersonSearchPicker
-            excludeIds={excludeIds}
-            disabled={relationState === 'parentLink'}
-            onSelect={(person) => void handleLinkRelative('parent', person)}
-          />
+        {canWrite && (
+          <>
+            <div className="person-panel__actions">
+              <button
+                type="button"
+                className="btn btn-ghost person-panel__toggle"
+                onClick={() => toggleRelation('parentCreate')}
+                disabled={relationState === 'parentLink'}
+              >
+                {relationOpen.parentCreate ? 'Скрыть создание' : 'Создать'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost person-panel__toggle"
+                onClick={() => toggleRelation('parentLink')}
+                disabled={relationState === 'parentCreate'}
+              >
+                {relationOpen.parentLink ? 'Скрыть поиск' : 'Выбрать'}
+              </button>
+            </div>
+            {relationOpen.parentCreate && (
+              <RelativeCreateForm
+                prefix="parent"
+                form={relativeForms.parent}
+                isSaving={relationState === 'parentCreate'}
+                submitLabel="Создать родителя"
+                onChange={(key, value) => updateRelativeForm('parent', key, value)}
+                onSubmit={(event) => handleCreateRelative('parent', event)}
+              />
+            )}
+            {relationOpen.parentLink && (
+              <PersonSearchPicker
+                excludeIds={excludeIds}
+                disabled={relationState === 'parentLink'}
+                onSelect={(person) => void handleLinkRelative('parent', person)}
+              />
+            )}
+          </>
         )}
       </RelativesSection>
 
       <RelativesSection title="Супруг(и)" people={relatives.spouses} onOpenPerson={onOpenPerson}>
-        <div className="person-panel__actions">
-          <button
-            type="button"
-            className="btn btn-ghost person-panel__toggle"
-            onClick={() => toggleRelation('spouseCreate')}
-            disabled={relationState === 'spouseLink'}
-          >
-            {relationOpen.spouseCreate ? 'Скрыть создание' : 'Создать'}
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost person-panel__toggle"
-            onClick={() => toggleRelation('spouseLink')}
-            disabled={relationState === 'spouseCreate'}
-          >
-            {relationOpen.spouseLink ? 'Скрыть поиск' : 'Выбрать'}
-          </button>
-        </div>
-        {relationOpen.spouseCreate && (
-          <RelativeCreateForm
-            prefix="spouse"
-            form={relativeForms.spouse}
-            isSaving={relationState === 'spouseCreate'}
-            submitLabel="Создать супруга"
-            onChange={(key, value) => updateRelativeForm('spouse', key, value)}
-            onSubmit={(event) => handleCreateRelative('spouse', event)}
-          />
-        )}
-        {relationOpen.spouseLink && (
-          <PersonSearchPicker
-            excludeIds={excludeIds}
-            disabled={relationState === 'spouseLink'}
-            onSelect={(person) => void handleLinkRelative('spouse', person)}
-          />
+        {canWrite && (
+          <>
+            <div className="person-panel__actions">
+              <button
+                type="button"
+                className="btn btn-ghost person-panel__toggle"
+                onClick={() => toggleRelation('spouseCreate')}
+                disabled={relationState === 'spouseLink'}
+              >
+                {relationOpen.spouseCreate ? 'Скрыть создание' : 'Создать'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost person-panel__toggle"
+                onClick={() => toggleRelation('spouseLink')}
+                disabled={relationState === 'spouseCreate'}
+              >
+                {relationOpen.spouseLink ? 'Скрыть поиск' : 'Выбрать'}
+              </button>
+            </div>
+            {relationOpen.spouseCreate && (
+              <RelativeCreateForm
+                prefix="spouse"
+                form={relativeForms.spouse}
+                isSaving={relationState === 'spouseCreate'}
+                submitLabel="Создать супруга"
+                onChange={(key, value) => updateRelativeForm('spouse', key, value)}
+                onSubmit={(event) => handleCreateRelative('spouse', event)}
+              />
+            )}
+            {relationOpen.spouseLink && (
+              <PersonSearchPicker
+                excludeIds={excludeIds}
+                disabled={relationState === 'spouseLink'}
+                onSelect={(person) => void handleLinkRelative('spouse', person)}
+              />
+            )}
+          </>
         )}
       </RelativesSection>
 
       <RelativesSection title="Дети" people={relatives.children} onOpenPerson={onOpenPerson}>
-        <div className="person-panel__actions">
-          <button
-            type="button"
-            className="btn btn-ghost person-panel__toggle"
-            onClick={() => setIsChildOpen((value) => !value)}
-          >
-            {isChildOpen ? 'Скрыть форму ребёнка' : 'Добавить ребёнка'}
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost person-panel__toggle"
-            onClick={() => toggleRelation('childLink')}
-            disabled={childState === 'saving'}
-          >
-            {relationOpen.childLink ? 'Скрыть поиск' : 'Привязать существующего'}
-          </button>
-        </div>
-        {relationOpen.childLink && (
-          <PersonSearchPicker
-            excludeIds={excludeIds}
-            disabled={relationState === 'childLink'}
-            onSelect={(person) => void handleLinkRelative('child', person)}
-          />
-        )}
-        {isChildOpen && (
-          <form className="person-panel__child-form" onSubmit={handleAddChild}>
-            <div className="field">
-              <label htmlFor="child-first-name">Имя</label>
-              <input id="child-first-name" value={childForm.firstName} onChange={(e) => updateChildForm('firstName', e.target.value)} required />
+        {canWrite && (
+          <>
+            <div className="person-panel__actions">
+              <button
+                type="button"
+                className="btn btn-ghost person-panel__toggle"
+                onClick={() => setIsChildOpen((value) => !value)}
+              >
+                {isChildOpen ? 'Скрыть форму ребёнка' : 'Добавить ребёнка'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost person-panel__toggle"
+                onClick={() => toggleRelation('childLink')}
+                disabled={childState === 'saving'}
+              >
+                {relationOpen.childLink ? 'Скрыть поиск' : 'Привязать существующего'}
+              </button>
             </div>
-            <div className="field">
-              <label htmlFor="child-last-name">Фамилия</label>
-              <input id="child-last-name" value={childForm.lastName} onChange={(e) => updateChildForm('lastName', e.target.value)} required />
-            </div>
-            <div className="field">
-              <label htmlFor="child-sex">Пол</label>
-              <select id="child-sex" value={childForm.sex} onChange={(e) => updateChildForm('sex', e.target.value)}>
-                <option value="M">Мужской</option>
-                <option value="F">Женский</option>
-                <option value="U">Не указан</option>
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="child-birth-date">Дата рождения</label>
-              <input id="child-birth-date" type="date" value={childForm.birthDate} onChange={(e) => updateChildForm('birthDate', e.target.value)} />
-            </div>
-            <button type="submit" className="btn" disabled={childState === 'saving'}>
-              {childState === 'saving' ? 'Добавляем…' : 'Добавить ребёнка'}
-            </button>
-          </form>
+            {relationOpen.childLink && (
+              <PersonSearchPicker
+                excludeIds={excludeIds}
+                disabled={relationState === 'childLink'}
+                onSelect={(person) => void handleLinkRelative('child', person)}
+              />
+            )}
+            {isChildOpen && (
+              <form className="person-panel__child-form" onSubmit={handleAddChild}>
+                <div className="field">
+                  <label htmlFor="child-first-name">Имя</label>
+                  <input id="child-first-name" value={childForm.firstName} onChange={(e) => updateChildForm('firstName', e.target.value)} required />
+                </div>
+                <div className="field">
+                  <label htmlFor="child-last-name">Фамилия</label>
+                  <input id="child-last-name" value={childForm.lastName} onChange={(e) => updateChildForm('lastName', e.target.value)} required />
+                </div>
+                <div className="field">
+                  <label htmlFor="child-sex">Пол</label>
+                  <select id="child-sex" value={childForm.sex} onChange={(e) => updateChildForm('sex', e.target.value)}>
+                    <option value="M">Мужской</option>
+                    <option value="F">Женский</option>
+                    <option value="U">Не указан</option>
+                  </select>
+                </div>
+                <div className="field">
+                  <label htmlFor="child-birth-date">Дата рождения</label>
+                  <input id="child-birth-date" type="date" value={childForm.birthDate} onChange={(e) => updateChildForm('birthDate', e.target.value)} />
+                </div>
+                <button type="submit" className="btn" disabled={childState === 'saving'}>
+                  {childState === 'saving' ? 'Добавляем…' : 'Добавить ребёнка'}
+                </button>
+              </form>
+            )}
+          </>
         )}
       </RelativesSection>
     </aside>

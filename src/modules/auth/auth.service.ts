@@ -10,6 +10,8 @@ import { Neo4jResultUtils } from "../../common/utils/neo4j-result.utils";
 import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
 import { AuthUser, JwtPayload } from "./interfaces/auth.interface";
+import { TreeRole } from "../trees/enums/tree-role.enum";
+import { TreeAccessService } from "../trees/services/tree-access.service";
 
 type UserNode = {
   id: string;
@@ -27,7 +29,8 @@ type TreeNode = {
 export class AuthService {
   constructor(
     private readonly neo4j: Neo4jService,
-    private readonly jwtService: JwtService
+    private readonly jwtService: JwtService,
+    private readonly treeAccess: TreeAccessService
   ) {}
 
   async register(dto: RegisterDto): Promise<{
@@ -76,6 +79,7 @@ export class AuthService {
       name: dto.name,
       treeId,
       treeName,
+      role: TreeRole.OWNER,
     };
 
     return { accessToken: await this.signToken(user), user };
@@ -101,12 +105,61 @@ export class AuthService {
       name: row.user.name,
       treeId: row.tree.id,
       treeName: row.tree.name,
+      role: TreeRole.OWNER,
     };
 
     return { accessToken: await this.signToken(user), user };
   }
 
-  async getProfile(userId: string): Promise<AuthUser> {
+  async getProfile(userId: string, treeId: string): Promise<AuthUser> {
+    const role = await this.treeAccess.getEffectiveRole(userId, treeId);
+    if (role) {
+      return this.getProfileForTree(userId, treeId, role);
+    }
+
+    return this.getOwnedProfile(userId);
+  }
+
+  async issueSessionForTree(
+    userId: string,
+    treeId: string
+  ): Promise<{ accessToken: string; user: AuthUser }> {
+    const user = await this.buildUserSession(userId, treeId);
+    return { accessToken: await this.signToken(user), user };
+  }
+
+  private async buildUserSession(
+    userId: string,
+    treeId: string
+  ): Promise<AuthUser> {
+    const role = await this.treeAccess.assertMinRole(
+      userId,
+      treeId,
+      TreeRole.VIEWER
+    );
+    return this.getProfileForTree(userId, treeId, role);
+  }
+
+  private async getProfileForTree(
+    userId: string,
+    treeId: string,
+    role: TreeRole
+  ): Promise<AuthUser> {
+    const result = await this.neo4j.read(
+      `
+      MATCH (u:User {id: $userId}), (t:Tree {id: $treeId})
+      RETURN u, t
+      LIMIT 1
+      `,
+      { userId, treeId }
+    );
+    if (result.records.length === 0) {
+      throw new UnauthorizedException("User not found");
+    }
+    return this.toAuthUser(result.records[0], role);
+  }
+
+  private async getOwnedProfile(userId: string): Promise<AuthUser> {
     const result = await this.neo4j.read(
       `
       MATCH (u:User {id: $userId})-[:OWNS]->(t:Tree)
@@ -118,11 +171,18 @@ export class AuthService {
     if (result.records.length === 0) {
       throw new UnauthorizedException("User not found");
     }
+    return this.toAuthUser(result.records[0], TreeRole.OWNER);
+  }
+
+  private toAuthUser(
+    record: { get: (key: string) => unknown },
+    role: TreeRole
+  ): AuthUser {
     const user = Neo4jResultUtils.normalizeValue(
-      result.records[0].get("u")
+      record.get("u")
     ) as UserNode;
     const tree = Neo4jResultUtils.normalizeValue(
-      result.records[0].get("t")
+      record.get("t")
     ) as TreeNode;
     return {
       userId: user.id,
@@ -130,6 +190,7 @@ export class AuthService {
       name: user.name,
       treeId: tree.id,
       treeName: tree.name,
+      role,
     };
   }
 
@@ -138,6 +199,7 @@ export class AuthService {
       sub: user.userId,
       email: user.email,
       treeId: user.treeId,
+      role: user.role,
     };
     return this.jwtService.signAsync(payload);
   }

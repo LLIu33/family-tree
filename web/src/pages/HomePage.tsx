@@ -1,11 +1,12 @@
 import { Link } from 'react-router-dom'
-import { getStoredUser } from '../api'
+import { getStoredUser, canWriteTree } from '../api'
 import { AppNav } from '../components/AppNav'
 import './HomePage.css'
 
 export function HomePage() {
   const user = getStoredUser()
   const treeName = user?.treeName || 'Ваше семейное древо'
+  const canWrite = canWriteTree(user)
 
   return (
     <div className="app-shell">
@@ -22,9 +23,11 @@ export function HomePage() {
           <Link className="btn" to="/tree">
             Открыть древо
           </Link>
-          <Link className="btn btn-ghost" to="/import">
-            Импорт GEDCOM
-          </Link>
+          {canWrite && (
+            <Link className="btn btn-ghost" to="/import">
+              Импорт GEDCOM
+            </Link>
+          )}
         </div>
 
         <p className="home-note muted">

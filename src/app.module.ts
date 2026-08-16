@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { FamilyTreeModule } from "./modules/family-tree/family-tree.module";
 import { AuthModule } from "./modules/auth/auth.module";
+import { TreesModule } from "./modules/trees/trees.module";
 import { Neo4jModule } from "./neo4j/neo4j.module";
 import { Neo4jConfig } from "./neo4j/interfaces/neo4j-config.interface";
 import { HealthController } from "./health.controller";
@@ -53,6 +54,7 @@ import {
       }),
     }),
     AuthModule,
+    TreesModule,
     FamilyTreeModule,
   ],
   controllers: [HealthController],

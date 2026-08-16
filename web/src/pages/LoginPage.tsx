@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ApiError,
   isAuthenticated,
@@ -12,8 +12,17 @@ import './LoginPage.css'
 
 type Mode = 'login' | 'register'
 
+function safeReturnUrl(raw: string | null): string {
+  if (!raw || !raw.startsWith('/') || raw.startsWith('//') || raw.includes('\\')) {
+    return '/'
+  }
+  return raw
+}
+
 export function LoginPage() {
   const navigate = useNavigate()
+  const [params] = useSearchParams()
+  const nextPath = safeReturnUrl(params.get('returnUrl'))
   const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -23,7 +32,7 @@ export function LoginPage() {
   const [pending, setPending] = useState(false)
 
   if (isAuthenticated()) {
-    return <Navigate to="/" replace />
+    return <Navigate to={nextPath} replace />
   }
 
   async function onSubmit(e: FormEvent) {
@@ -41,7 +50,7 @@ export function LoginPage() {
               treeName: treeName || undefined,
             })
       saveAuth(result.accessToken, result.user)
-      navigate('/', { replace: true })
+      navigate(nextPath, { replace: true })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong')
     } finally {

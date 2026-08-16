@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { ApiError, exportGedcom, importGedcom } from '../api'
+import { ApiError, canWriteTree, exportGedcom, importGedcom } from '../api'
 import { AppNav } from '../components/AppNav'
 import './ImportPage.css'
 
 export function ImportPage() {
+  const canWrite = canWriteTree()
   const [file, setFile] = useState<File | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -47,27 +48,31 @@ export function ImportPage() {
           древо.
         </p>
 
-        <form className="import-panel panel" onSubmit={onSubmit}>
-          <div className="field">
-            <label htmlFor="gedcom">Файл GEDCOM</label>
-            <input
-              id="gedcom"
-              type="file"
-              accept=".ged,.gedcom,text/plain"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            />
-          </div>
-          {file && (
-            <p className="muted file-name">
-              Выбран: <strong>{file.name}</strong>
-            </p>
-          )}
-          {error && <p className="error">{error}</p>}
-          {message && <p className="success">{message}</p>}
-          <button className="btn" type="submit" disabled={pending || !file}>
-            {pending ? 'Загружаем…' : 'Импортировать'}
-          </button>
-        </form>
+        {canWrite ? (
+          <form className="import-panel panel" onSubmit={onSubmit}>
+            <div className="field">
+              <label htmlFor="gedcom">Файл GEDCOM</label>
+              <input
+                id="gedcom"
+                type="file"
+                accept=".ged,.gedcom,text/plain"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              />
+            </div>
+            {file && (
+              <p className="muted file-name">
+                Выбран: <strong>{file.name}</strong>
+              </p>
+            )}
+            {error && <p className="error">{error}</p>}
+            {message && <p className="success">{message}</p>}
+            <button className="btn" type="submit" disabled={pending || !file}>
+              {pending ? 'Загружаем…' : 'Импортировать'}
+            </button>
+          </form>
+        ) : (
+          <p className="muted">Импорт недоступен в режиме просмотра.</p>
+        )}
 
         <section className="import-panel panel export-panel">
           <h2 className="export-title">Экспорт</h2>

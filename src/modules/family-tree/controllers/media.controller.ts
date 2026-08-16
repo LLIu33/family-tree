@@ -16,15 +16,19 @@ import { ApiBearerAuth, ApiConsumes, ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../auth/guards/jwt-auth.guard";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator";
 import { AuthUser } from "../../auth/interfaces/auth.interface";
+import { MinRole } from "../../trees/decorators/min-role.decorator";
+import { TreeRole } from "../../trees/enums/tree-role.enum";
+import { MinRoleGuard } from "../../trees/guards/min-role.guard";
 
 @ApiTags("Family Tree Media")
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, MinRoleGuard)
 @Controller("family-tree/media")
 export class MediaController {
   constructor(private readonly mediaService: MediaService) {}
 
   @Post("upload")
+  @MinRole(TreeRole.EDITOR)
   @ApiConsumes("multipart/form-data")
   @UseInterceptors(FileInterceptor("file"))
   async uploadMedia(
@@ -36,6 +40,7 @@ export class MediaController {
   }
 
   @Get(":individualId")
+  @MinRole(TreeRole.VIEWER)
   async getMedia(
     @CurrentUser() user: AuthUser,
     @Param("individualId") individualId: string
@@ -44,6 +49,7 @@ export class MediaController {
   }
 
   @Delete(":mediaId")
+  @MinRole(TreeRole.EDITOR)
   async deleteMedia(
     @CurrentUser() user: AuthUser,
     @Param("mediaId") mediaId: string

@@ -43,10 +43,13 @@ import {
 import { JwtAuthGuard } from "../../auth/guards/jwt-auth.guard";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator";
 import { AuthUser } from "../../auth/interfaces/auth.interface";
+import { MinRole } from "../../trees/decorators/min-role.decorator";
+import { TreeRole } from "../../trees/enums/tree-role.enum";
+import { MinRoleGuard } from "../../trees/guards/min-role.guard";
 
 @ApiTags("Family Tree")
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, MinRoleGuard)
 @Controller("family-tree")
 @UseFilters(Neo4jErrorFilter, GEDCOMValidationFilter)
 export class FamilyTreeController {
@@ -58,6 +61,7 @@ export class FamilyTreeController {
   ) {}
 
   @Post("individuals")
+  @MinRole(TreeRole.EDITOR)
   @ApiOperation({ summary: "Create a new individual" })
   @ApiResponse({ status: 201, description: "Individual created" })
   @ApiResponse({ status: 400, description: "Bad request" })
@@ -72,24 +76,32 @@ export class FamilyTreeController {
   }
 
   @Get("individuals")
+  @MinRole(TreeRole.VIEWER)
   @ApiOperation({ summary: "Search individuals in the current tree" })
   async searchIndividuals(
     @CurrentUser() user: AuthUser,
     @Query("q") q = "",
     @Query("limit", new DefaultValuePipe(20), ParseIntPipe) limit: number
   ) {
-    return this.familyTreeService.searchIndividuals(user.treeId, q, limit);
+    return this.familyTreeService.searchIndividuals(
+      user.treeId,
+      q,
+      limit,
+      user.role,
+    );
   }
 
   @Get("graph")
+  @MinRole(TreeRole.VIEWER)
   @ApiOperation({
     summary: "Full family graph for the current tree (largest component)",
   })
   async getFullGraph(@CurrentUser() user: AuthUser) {
-    return this.familyTreeService.getFullGraph(user.treeId);
+    return this.familyTreeService.getFullGraph(user.treeId, user.role);
   }
 
   @Get("individuals/:id")
+  @MinRole(TreeRole.VIEWER)
   @ApiOperation({ summary: "Get individual by ID" })
   @ApiResponse({ status: 200, description: "Individual found" })
   @ApiResponse({ status: 404, description: "Individual not found" })
@@ -105,6 +117,7 @@ export class FamilyTreeController {
   }
 
   @Post("individuals/:id/children")
+  @MinRole(TreeRole.EDITOR)
   @ApiOperation({
     summary: "Add a child to this individual (and unique spouse)",
   })
@@ -117,6 +130,7 @@ export class FamilyTreeController {
   }
 
   @Patch("individuals/:id")
+  @MinRole(TreeRole.EDITOR)
   @ApiOperation({ summary: "Update individual in the current tree" })
   async updateIndividual(
     @CurrentUser() user: AuthUser,
@@ -127,6 +141,7 @@ export class FamilyTreeController {
   }
 
   @Get("individuals/:id/ancestors")
+  @MinRole(TreeRole.VIEWER)
   @ApiOperation({ summary: "Get ancestors of an individual" })
   async getAncestors(
     @CurrentUser() user: AuthUser,
@@ -138,6 +153,7 @@ export class FamilyTreeController {
   }
 
   @Get("individuals/:id/descendants")
+  @MinRole(TreeRole.VIEWER)
   @ApiOperation({ summary: "Get descendants of an individual" })
   async getDescendants(
     @CurrentUser() user: AuthUser,
@@ -149,6 +165,7 @@ export class FamilyTreeController {
   }
 
   @Post("families")
+  @MinRole(TreeRole.EDITOR)
   @ApiOperation({ summary: "Create a new family" })
   async createFamily(
     @CurrentUser() user: AuthUser,
@@ -158,12 +175,14 @@ export class FamilyTreeController {
   }
 
   @Get("families/:id")
+  @MinRole(TreeRole.VIEWER)
   @ApiOperation({ summary: "Get family by ID" })
   async getFamily(@CurrentUser() user: AuthUser, @Param("id") id: string) {
     return this.familyTreeService.getFamily(user.treeId, id);
   }
 
   @Post("relationships")
+  @MinRole(TreeRole.EDITOR)
   @ApiOperation({ summary: "Create relationship between individuals" })
   async createRelationship(
     @CurrentUser() user: AuthUser,
@@ -176,6 +195,7 @@ export class FamilyTreeController {
   }
 
   @Post("individuals/:id/media")
+  @MinRole(TreeRole.EDITOR)
   @ApiOperation({ summary: "Upload media for individual" })
   @ApiConsumes("multipart/form-data")
   @ApiBody({
@@ -210,6 +230,7 @@ export class FamilyTreeController {
   @Header("Content-Type", "text/plain; charset=utf-8")
   @Header("Content-Disposition", 'attachment; filename="family-tree.ged"')
   @Get("export/gedcom")
+  @MinRole(TreeRole.VIEWER)
   @ApiOperation({ summary: "Export family tree as GEDCOM" })
   @ApiResponse({ status: 200, description: "GEDCOM file" })
   async exportGedcom(@CurrentUser() user: AuthUser): Promise<string> {
@@ -217,6 +238,7 @@ export class FamilyTreeController {
   }
 
   @Post("import/gedcom")
+  @MinRole(TreeRole.EDITOR)
   @ApiOperation({ summary: "Import family tree from GEDCOM file" })
   @ApiConsumes("multipart/form-data")
   @UseInterceptors(
@@ -242,6 +264,7 @@ export class FamilyTreeController {
   }
 
   @Get("visualize/:rootId")
+  @MinRole(TreeRole.VIEWER)
   @ApiOperation({ summary: "Visualize family tree from root individual" })
   async visualizeTree(
     @CurrentUser() user: AuthUser,

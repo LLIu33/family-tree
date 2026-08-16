@@ -14,12 +14,49 @@ const TOKEN_KEY = 'rodnik_token'
 const TREE_ID_KEY = 'rodnik_treeId'
 const USER_KEY = 'rodnik_user'
 
+export type TreeRole = 'owner' | 'editor' | 'viewer'
+
+function asTreeRole(value: unknown): TreeRole {
+  if (value === 'owner' || value === 'editor' || value === 'viewer') return value
+  return 'owner'
+}
+
 export interface AuthUser {
   userId: string
   email: string
   treeId: string
   treeName: string
   name: string
+  role: TreeRole
+}
+
+export interface TreeSummary {
+  id: string
+  name: string
+  role: TreeRole
+}
+
+export interface CreatedInvite {
+  id: string
+  token: string
+  inviteUrl: string
+  role: Exclude<TreeRole, 'owner'>
+  expiresAt: string
+}
+
+export interface ListedInvite {
+  id: string
+  role: Exclude<TreeRole, 'owner'>
+  expiresAt: string
+  createdAt: string
+}
+
+export interface TreeMember {
+  userId: string
+  email: string
+  name: string
+  role: TreeRole
+  joinedAt: string | null
 }
 
 export interface AuthResponse {
@@ -162,7 +199,8 @@ export function getStoredUser(): AuthUser | null {
   const raw = localStorage.getItem(USER_KEY)
   if (!raw) return null
   try {
-    return JSON.parse(raw) as AuthUser
+    const parsed = JSON.parse(raw) as AuthUser
+    return { ...parsed, role: asTreeRole(parsed.role) }
   } catch {
     return null
   }
@@ -182,6 +220,31 @@ export function clearAuth(): void {
 
 export function isAuthenticated(): boolean {
   return Boolean(getToken())
+}
+
+export async function getMe(): Promise<AuthUser> {
+  const data = await request<AuthUser>('/auth/me')
+  return { ...data, role: asTreeRole(data.role) }
+}
+
+export async function refreshSessionUser(): Promise<AuthUser | null> {
+  const token = getToken()
+  if (!token) return null
+  const me = await getMe()
+  const stored = getStoredUser()
+  if (
+    !stored ||
+    stored.treeId !== me.treeId ||
+    stored.role !== me.role ||
+    stored.treeName !== me.treeName
+  ) {
+    saveAuth(token, me)
+  }
+  return me
+}
+
+export function canWriteTree(user: AuthUser | null = getStoredUser()): boolean {
+  return user?.role !== 'viewer'
 }
 
 async function parseError(res: Response): Promise<string> {
@@ -236,13 +299,16 @@ function normalizeAuth(data: Record<string, unknown>): AuthResponse {
     (data.token as string | undefined)
 
   const nested = data.user as AuthUser | undefined
-  const user: AuthUser = nested ?? {
-    userId: String(data.userId ?? data.sub ?? ''),
-    email: String(data.email ?? ''),
-    treeId: String(data.treeId ?? ''),
-    treeName: String(data.treeName ?? 'Моё древо'),
-    name: String(data.name ?? ''),
-  }
+  const user: AuthUser = nested
+    ? { ...nested, role: asTreeRole(nested.role) }
+    : {
+        userId: String(data.userId ?? data.sub ?? ''),
+        email: String(data.email ?? ''),
+        treeId: String(data.treeId ?? ''),
+        treeName: String(data.treeName ?? 'Моё древо'),
+        name: String(data.name ?? ''),
+        role: asTreeRole(data.role),
+      }
 
   if (!accessToken) {
     throw new ApiError(500, 'Auth response missing access token')
@@ -369,6 +435,72 @@ export async function deleteMedia(mediaId: string): Promise<void> {
   return request<void>(`/family-tree/media/${encodeURIComponent(mediaId)}`, {
     method: 'DELETE',
   })
+}
+
+export async function listTrees(): Promise<TreeSummary[]> {
+  return request<TreeSummary[]>('/trees')
+}
+
+export async function switchTree(treeId: string): Promise<AuthResponse> {
+  const data = await request<Record<string, unknown>>(
+    `/trees/${encodeURIComponent(treeId)}/switch`,
+    { method: 'POST' },
+  )
+  return normalizeAuth(data)
+}
+
+export async function createInvite(
+  treeId: string,
+  role: Exclude<TreeRole, 'owner'>,
+  expiresInDays?: number,
+): Promise<CreatedInvite> {
+  return request<CreatedInvite>(
+    `/trees/${encodeURIComponent(treeId)}/invites`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ role, expiresInDays }),
+    },
+  )
+}
+
+export async function listInvites(treeId: string): Promise<ListedInvite[]> {
+  return request<ListedInvite[]>(
+    `/trees/${encodeURIComponent(treeId)}/invites`,
+  )
+}
+
+export async function revokeInvite(
+  treeId: string,
+  inviteId: string,
+): Promise<void> {
+  return request<void>(
+    `/trees/${encodeURIComponent(treeId)}/invites/${encodeURIComponent(inviteId)}`,
+    { method: 'DELETE' },
+  )
+}
+
+export async function listMembers(treeId: string): Promise<TreeMember[]> {
+  return request<TreeMember[]>(
+    `/trees/${encodeURIComponent(treeId)}/members`,
+  )
+}
+
+export async function removeMember(
+  treeId: string,
+  userId: string,
+): Promise<void> {
+  return request<void>(
+    `/trees/${encodeURIComponent(treeId)}/members/${encodeURIComponent(userId)}`,
+    { method: 'DELETE' },
+  )
+}
+
+export async function acceptInvite(token: string): Promise<AuthResponse> {
+  const data = await request<Record<string, unknown>>(
+    `/invites/${encodeURIComponent(token)}/accept`,
+    { method: 'POST' },
+  )
+  return normalizeAuth(data)
 }
 
 export async function importGedcom(file: File): Promise<unknown> {

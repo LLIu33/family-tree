@@ -4,6 +4,7 @@ import { RelationType } from "../enums/relation-type.enum";
 import { Sex } from "../enums/sex.enum";
 import { Neo4jService } from "../../../neo4j/neo4j.service";
 import { Neo4jResultUtils } from "../../../common/utils/neo4j-result.utils";
+import { TreeRole } from "../../trees/enums/tree-role.enum";
 
 describe("FamilyTreeService relationships (Family hub)", () => {
   let service: FamilyTreeService;
@@ -667,5 +668,41 @@ describe("FamilyTreeService searchIndividuals", () => {
         avatarMediaId: "avatar-search",
       },
     ]);
+  });
+});
+
+describe("FamilyTreeService ensureTreeHasData claim", () => {
+  let service: FamilyTreeService;
+  let neo4j: { read: jest.Mock; write: jest.Mock; executeTransaction: jest.Mock };
+
+  beforeEach(() => {
+    neo4j = {
+      read: jest.fn().mockResolvedValue({ records: [] }),
+      write: jest.fn().mockResolvedValue({ records: [] }),
+      executeTransaction: jest.fn(),
+    };
+    service = new FamilyTreeService(neo4j as unknown as Neo4jService);
+  });
+
+  it.each([TreeRole.VIEWER, TreeRole.EDITOR] as const)(
+    "does not claim null treeId nodes for %s on an empty tree",
+    async (role) => {
+      await service.getFullGraph("shared-tree", role);
+
+      expect(neo4j.write).not.toHaveBeenCalled();
+    },
+  );
+
+  it("does not claim null treeId nodes when searching as a viewer", async () => {
+    await service.searchIndividuals("shared-tree", "", 20, TreeRole.VIEWER);
+
+    expect(neo4j.write).not.toHaveBeenCalled();
+  });
+
+  it("claims null treeId nodes for the owner of an empty tree", async () => {
+    await service.getFullGraph("owned-tree", TreeRole.OWNER);
+
+    expect(neo4j.write).toHaveBeenCalled();
+    expect(neo4j.write.mock.calls[0][0]).toContain("SET i.treeId");
   });
 });
