@@ -20,6 +20,8 @@
 |-------|------|------|---------|
 | `POST` | `/auth/register` | публичный | личное дерево |
 | `POST` | `/auth/login` | публичный | сессия `OWNS` |
+| `POST` | `/auth/forgot-password` | публичный | 200 + сообщение; throttle |
+| `POST` | `/auth/reset-password` | публичный | тело `token` + `password`; throttle |
 | `GET` | `/auth/me` | JWT | профиль |
 
 См. [auth.md](auth.md).

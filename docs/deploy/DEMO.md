@@ -15,7 +15,7 @@ API — только REST (GraphQL удалён).
 2. Render Blueprint → этот репо  
 3. API: **Environment = Docker**, **Dockerfile Path = `Dockerfile.api`**  
    Не выбирай Node — иначе Render делает `npm start` / `nest start` и падает по OOM.  
-4. Env API: `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`, `STORAGE_TYPE=local`, `SERVE_WEB=false`  
+4. Env API: `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`, `STORAGE_TYPE=local`, `SERVE_WEB=false`, `APP_PUBLIC_URL=<url веба>` (ссылка в письме сброса пароля)  
    Удали `NODE_OPTIONS`, если добавлял. Start Command оставь пустым (берётся из Dockerfile).  
 5. Web static: Root Directory = `web`, `VITE_API_URL=<api url>`  
 6. Проверка: `GET /health`
@@ -32,7 +32,7 @@ API — только REST (GraphQL удалён).
 1. **Build Command:** `npm ci && npm run build:render`  
    (для web same-origin не задавай `VITE_API_URL`, или поставь пустым)
 2. **Start Command:** `node --max-old-space-size=460 --optimize-for-size dist/main.js`
-3. Env: **`SERVE_WEB=true`**, плюс Aura `NEO4J_*`, `STORAGE_TYPE=local`, `SWAGGER_ENABLED=false`
+3. Env: **`SERVE_WEB=true`**, плюс Aura `NEO4J_*`, `STORAGE_TYPE=local`, `SWAGGER_ENABLED=false`, `APP_PUBLIC_URL=https://….onrender.com` (same-origin UI)
 4. Redeploy → `/` должен открыть UI, `/health` — API
 
 Альтернатива: отдельный Static Site с Root `web` и `VITE_API_URL=<api url>`.
