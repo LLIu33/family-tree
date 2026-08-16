@@ -42,6 +42,11 @@
   padding: 1.5rem;
 }
 
+.login-panel > .brand {
+  margin-bottom: 1rem;
+  font-size: 1.45rem;
+}
+
 .tabs {
   display: flex;
   gap: 0.5rem;
@@ -66,6 +71,16 @@
 .login-panel .btn {
   width: 100%;
   margin-top: 0.25rem;
+}
+
+.login-aux {
+  margin: 0 0 1rem;
+  font-size: 0.95rem;
+}
+
+.login-aux--after {
+  margin: 1rem 0 0;
+  text-align: center;
 }
 
 @media (max-width: 800px) {

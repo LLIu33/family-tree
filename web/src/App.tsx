@@ -4,7 +4,9 @@ import { AccessPage } from './pages/AccessPage'
 import { HomePage } from './pages/HomePage'
 import { ImportPage } from './pages/ImportPage'
 import { InviteAcceptPage } from './pages/InviteAcceptPage'
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { LoginPage } from './pages/LoginPage'
+import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { TreePage } from './pages/TreePage'
 
 export default function App() {
@@ -12,6 +14,8 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/invite/:token" element={<InviteAcceptPage />} />
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<HomePage />} />

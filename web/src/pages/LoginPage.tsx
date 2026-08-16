@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ApiError,
   isAuthenticated,
@@ -145,6 +145,11 @@ export function LoginPage() {
                 autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               />
             </div>
+            {mode === 'login' && (
+              <p className="login-aux">
+                <Link to="/forgot-password">Забыли пароль?</Link>
+              </p>
+            )}
             {error && <p className="error">{error}</p>}
             <button className="btn" type="submit" disabled={pending}>
               {pending

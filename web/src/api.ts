@@ -349,6 +349,33 @@ export async function register(input: {
   return normalizeAuth(data)
 }
 
+export async function forgotPassword(
+  email: string,
+): Promise<{ message: string }> {
+  return request<{ message: string }>(
+    '/auth/forgot-password',
+    {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    },
+    false,
+  )
+}
+
+export async function resetPassword(
+  token: string,
+  password: string,
+): Promise<{ message: string }> {
+  return request<{ message: string }>(
+    '/auth/reset-password',
+    {
+      method: 'POST',
+      body: JSON.stringify({ token, password }),
+    },
+    false,
+  )
+}
+
 export async function visualizeTree(
   rootId: string,
   depth = 3,
