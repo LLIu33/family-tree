@@ -2,21 +2,22 @@
 
 Семейное древо: NestJS + Neo4j API и веб-приложение (`web/`). Личные деревья с JWT-авторизацией.
 
+Документация продукта и API: **[docs/README.md](docs/README.md)**. План работ: **[docs/ROADMAP.md](docs/ROADMAP.md)**.
+
 ## Features
 
 - Auth (register/login) — each user gets a personal **Tree**
+- Sharing: invite links (`editor` / `viewer`), tree switcher, owner-only Access page
 - CRUD for individuals and families (scoped by `treeId`)
 - Relationships via a **Family hub** model (`HUSBAND` / `WIFE` / `CHILD`)
 - Ancestors / descendants / tree JSON for visualization
-- Built-in GEDCOM import
-- Web UI: login, home, tree canvas, GEDCOM import, person avatars
+- GEDCOM import and export (`.ged`; export is a graph snapshot, not a full backup)
+- Web UI: login, home, tree canvas, GEDCOM import/export, sharing, person avatars
 - Media upload (REST → S3, required for avatars)
-
-Planned / not done yet: **[docs/ROADMAP.md](docs/ROADMAP.md)**.
 
 ## Graph model
 
-Canonical relationships (write + read):
+Canonical relationships (write + read). Подробнее: **[docs/dev/graph-model.md](docs/dev/graph-model.md)**.
 
 ```
 (Individual)-[:HUSBAND]->(Family)
@@ -99,23 +100,12 @@ Protected API routes need `Authorization: Bearer <token>` (Swagger Authorize but
 Notes:
 
 - `API_PREFIX` in `.env` is not applied yet — routes are `/family-tree/...`, not `/api/...`.
-- Core CRUD / GEDCOM / tree queries work without object storage. Avatar upload needs `STORAGE_TYPE=s3` and real `AWS_*` values (AWS S3 or S3-compatible: set `AWS_S3_ENDPOINT` + `AWS_S3_PUBLIC_URL_BASE`, e.g. Yandex `https://storage.yandexcloud.net`).
+- Core CRUD / GEDCOM / tree queries work without object storage. Avatar upload needs `STORAGE_TYPE=s3` and real `AWS_*` values (AWS S3 or S3-compatible: set `AWS_S3_ENDPOINT` + `AWS_S3_PUBLIC_URL_BASE`, e.g. Yandex `https://storage.yandexcloud.net`). Details: [docs/dev/media-s3.md](docs/dev/media-s3.md).
 - Change the default Neo4j password before any non-local use.
 
-## Main REST endpoints
+## REST API
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/family-tree/individuals` | Create individual |
-| GET | `/family-tree/individuals/:id` | Get individual |
-| GET | `/family-tree/individuals/:id/ancestors` | Ancestors |
-| GET | `/family-tree/individuals/:id/descendants` | Descendants |
-| POST | `/family-tree/families` | Create family (+ optional member IDs) |
-| GET | `/family-tree/families/:id` | Get family with members |
-| POST | `/family-tree/relationships` | Link people (`PARENT` / `SPOUSE` / `SIBLING`, …) |
-| POST | `/family-tree/import/gedcom` | Import GEDCOM file |
-| GET | `/family-tree/visualize/:rootId` | Tree subgraph JSON |
-| POST | `/family-tree/media` | Media endpoints (see media controller) |
+Группы маршрутов (`/auth`, `/trees`, `/invites`, `/family-tree`, `/family-tree/media`) и роли — **[docs/dev/api.md](docs/dev/api.md)**. Полные схемы — Swagger `/api-docs` (если `SWAGGER_ENABLED=true`). Protected routes: `Authorization: Bearer <token>`.
 
 ## Scripts
 
@@ -128,9 +118,8 @@ Notes:
 
 ## Current limitations
 
-- **No authentication** — treat as open/dev API for now
-- **No UI** — `visualize` returns JSON only
-- **Media storage is S3-compatible only** — `STORAGE_TYPE=local` is not implemented yet. For Yandex Object Storage use `AWS_S3_ENDPOINT=https://storage.yandexcloud.net` and `AWS_S3_PUBLIC_URL_BASE=https://storage.yandexcloud.net/<bucket>`.
+- **Media storage is S3-compatible only** — `STORAGE_TYPE=local` is not implemented yet. Avatars need `STORAGE_TYPE=s3` and real `AWS_*` (see [docs/dev/media-s3.md](docs/dev/media-s3.md)). For Yandex Object Storage use `AWS_S3_ENDPOINT=https://storage.yandexcloud.net` and `AWS_S3_PUBLIC_URL_BASE=https://storage.yandexcloud.net/<bucket>`.
+- GEDCOM export does not include media / `OBJE`
 - APOC is **not** required
 
 ## License

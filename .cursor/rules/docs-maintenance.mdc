@@ -1,0 +1,14 @@
+---
+description: Keep product docs in sync when shipping features
+alwaysApply: true
+---
+
+# Documentation maintenance
+
+When adding or changing user-facing behavior, API, auth, graph model, GEDCOM, or media:
+
+- Update the matching files under `docs/user/` and/or `docs/dev/` in the same change set.
+- Update the root `README.md` and/or `docs/README.md` if navigation or setup instructions change.
+- Update checkboxes in `docs/ROADMAP.md` when closing a listed roadmap item.
+
+Do not consider a feature complete without the corresponding documentation update, unless you explicitly note why documentation is not applicable (N/A).
