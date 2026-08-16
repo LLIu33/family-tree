@@ -1,6 +1,7 @@
 import { BadRequestException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import * as bcrypt from "bcrypt";
+import { createHash } from "crypto";
 import { Neo4jService } from "../../../neo4j/neo4j.service";
 import { PasswordResetService } from "./password-reset.service";
 
@@ -69,6 +70,17 @@ describe("PasswordResetService", () => {
       to: "ada@example.com",
       resetUrl: expect.stringContaining("/reset-password?token="),
     });
+
+    const resetUrl = mail.sendPasswordReset.mock.calls[0][0].resetUrl as string;
+    const token = new URL(resetUrl).searchParams.get("token");
+    expect(token).toBeTruthy();
+
+    const [, params] = neo4j.write.mock.calls[0];
+    expect(params.tokenHash).toBe(
+      createHash("sha256").update(token!).digest("hex"),
+    );
+    expect(params.tokenHash).not.toBe(token);
+    expect(params).not.toHaveProperty("token");
   });
 
   it("resetPassword updates passwordHash and deletes resets for a valid token", async () => {
@@ -85,6 +97,7 @@ describe("PasswordResetService", () => {
 
     const [query, params] = neo4j.write.mock.calls[0];
     expect(query).toContain("passwordHash");
+    expect(query).toContain("passwordChangedAt");
     expect(query).toContain("DETACH DELETE");
     expect(params.passwordHash).toBe("hashed-password");
     expect(params.userId).toBe("user-1");

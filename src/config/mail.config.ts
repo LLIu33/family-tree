@@ -10,8 +10,9 @@ export const mailConfig = registerAs(
   "mail",
   (): MailConfig => ({
     driver: "log",
-    appPublicUrl:
-      process.env.APP_PUBLIC_URL || "http://localhost:5173",
+    appPublicUrl: (
+      process.env.APP_PUBLIC_URL || "http://localhost:5173"
+    ).replace(/\/$/, ""),
     passwordResetTtlMs: parseInt(
       process.env.PASSWORD_RESET_TTL_MS || "3600000",
       10,

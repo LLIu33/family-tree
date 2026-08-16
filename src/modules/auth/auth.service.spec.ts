@@ -232,6 +232,16 @@ describe("AuthService", () => {
     ).rejects.toThrow(UnauthorizedException);
   });
 
+  it("assertJwtPasswordFresh rejects missing pwd when passwordChangedAt is set", async () => {
+    neo4j.read.mockResolvedValue({
+      records: [record({ changedMs: 2_000 })],
+    });
+
+    await expect(
+      service.assertJwtPasswordFresh("user-1", undefined),
+    ).rejects.toThrow(UnauthorizedException);
+  });
+
   it("assertJwtPasswordFresh allows missing pwd when user has no passwordChangedAt", async () => {
     neo4j.read.mockResolvedValue({
       records: [record({ changedMs: null })],
