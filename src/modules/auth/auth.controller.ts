@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Post, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+  UseGuards,
+} from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { SkipThrottle, ThrottlerGuard } from "@nestjs/throttler";
 import { AuthService } from "./auth.service";
@@ -36,6 +44,7 @@ export class AuthController {
   }
 
   @Post("forgot-password")
+  @HttpCode(HttpStatus.OK)
   @UseGuards(ThrottlerGuard)
   @SkipThrottle({ login: true, register: true, reset: true })
   @ApiOperation({ summary: "Request password reset email" })
@@ -44,6 +53,7 @@ export class AuthController {
   }
 
   @Post("reset-password")
+  @HttpCode(HttpStatus.OK)
   @UseGuards(ThrottlerGuard)
   @SkipThrottle({ login: true, register: true, forgot: true })
   @ApiOperation({ summary: "Set new password with reset token" })

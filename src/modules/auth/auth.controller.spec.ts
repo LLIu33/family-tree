@@ -118,7 +118,7 @@ describe("AuthController throttling", () => {
       await request(app.getHttpServer())
         .post("/auth/forgot-password")
         .send(body)
-        .expect(201);
+        .expect(200);
     }
     await request(app.getHttpServer())
       .post("/auth/forgot-password")
@@ -132,7 +132,7 @@ describe("AuthController throttling", () => {
       await request(app.getHttpServer())
         .post("/auth/reset-password")
         .send(body)
-        .expect(201);
+        .expect(200);
     }
     await request(app.getHttpServer())
       .post("/auth/reset-password")
@@ -146,11 +146,11 @@ describe("AuthController throttling", () => {
       await request(app.getHttpServer())
         .post("/auth/forgot-password")
         .send(forgotBody)
-        .expect(201);
+        .expect(200);
     }
     await request(app.getHttpServer())
       .post("/auth/reset-password")
       .send({ token: "reset-token", password: "secret123" })
-      .expect(201);
+      .expect(200);
   });
 });
