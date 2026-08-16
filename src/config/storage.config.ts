@@ -40,15 +40,22 @@ export const storageConfig = registerAs("storage", (): StorageConfig => {
   if (config.type === "local") {
     config.localPath = process.env.STORAGE_LOCAL_PATH || "./uploads";
   } else {
-    const endpoint = (process.env.AWS_S3_ENDPOINT || "").trim();
+    const rawEndpoint = (process.env.AWS_S3_ENDPOINT || "").trim().replace(/\/+$/, "");
+    const endpoint = rawEndpoint
+      ? /^https?:\/\//i.test(rawEndpoint)
+        ? rawEndpoint
+        : `https://${rawEndpoint}`
+      : undefined;
     const forcePathStyleEnv = process.env.AWS_S3_FORCE_PATH_STYLE;
     config.s3 = {
       accessKey: process.env.AWS_ACCESS_KEY_ID || "",
       secretKey: process.env.AWS_SECRET_ACCESS_KEY || "",
       region: process.env.AWS_REGION || "us-east-1",
       bucket: process.env.AWS_S3_BUCKET || "",
-      endpoint: endpoint || undefined,
-      publicUrlBase: (process.env.AWS_S3_PUBLIC_URL_BASE || "").trim() || undefined,
+      endpoint,
+      publicUrlBase:
+        (process.env.AWS_S3_PUBLIC_URL_BASE || "").trim().replace(/\/+$/, "") ||
+        undefined,
       forcePathStyle:
         forcePathStyleEnv !== undefined
           ? forcePathStyleEnv === "true" || forcePathStyleEnv === "1"

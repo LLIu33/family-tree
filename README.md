@@ -12,6 +12,8 @@
 - Web UI: login, home, tree canvas, GEDCOM import, person avatars
 - Media upload (REST → S3, required for avatars)
 
+Planned / not done yet: **[docs/ROADMAP.md](docs/ROADMAP.md)**.
+
 ## Graph model
 
 Canonical relationships (write + read):

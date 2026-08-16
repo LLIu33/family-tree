@@ -41,7 +41,10 @@ export class StorageService {
       this.configService.get<string>("storage.s3.endpoint") ||
       this.configService.get<string>("AWS_S3_ENDPOINT") ||
       "";
-    return value.trim() || undefined;
+    const trimmed = value.trim().replace(/\/+$/, "");
+    if (!trimmed) return undefined;
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    return `https://${trimmed}`;
   }
 
   private forcePathStyle(): boolean {
@@ -74,16 +77,30 @@ export class StorageService {
       this.s3Init = (async () => {
         const AWS = (await import("aws-sdk")).default;
         const endpoint = this.endpoint();
+        const accessKeyId = String(
+          this.configService.get("storage.s3.accessKey") ||
+            this.configService.get("AWS_ACCESS_KEY_ID") ||
+            "",
+        ).trim();
+        const secretAccessKey = String(
+          this.configService.get("storage.s3.secretKey") ||
+            this.configService.get("AWS_SECRET_ACCESS_KEY") ||
+            "",
+        ).trim();
+        const region = String(
+          this.configService.get("storage.s3.region") ||
+            this.configService.get("AWS_REGION") ||
+            "ru-central1",
+        ).trim();
+
+        // Yandex Object Storage (and most S3-compatible APIs) require SigV4 +
+        // path-style addressing when a custom endpoint is set. Endpoint must
+        // include https:// or signatures will not match.
         const client = new AWS.S3({
-          accessKeyId:
-            this.configService.get("storage.s3.accessKey") ||
-            this.configService.get("AWS_ACCESS_KEY_ID"),
-          secretAccessKey:
-            this.configService.get("storage.s3.secretKey") ||
-            this.configService.get("AWS_SECRET_ACCESS_KEY"),
-          region:
-            this.configService.get("storage.s3.region") ||
-            this.configService.get("AWS_REGION"),
+          accessKeyId,
+          secretAccessKey,
+          region,
+          signatureVersion: "v4",
           ...(endpoint
             ? {
                 endpoint,
