@@ -10,6 +10,7 @@ import {
   switchTree,
   type TreeSummary,
 } from '../api'
+import { BrandLockup } from './BrandLockup'
 
 export function AppNav() {
   const navigate = useNavigate()
@@ -67,8 +68,8 @@ export function AppNav() {
 
   return (
     <header className="top-nav fade-in">
-      <Link to="/" className="brand brand-mark" style={{ textDecoration: 'none', color: 'inherit' }}>
-        Древо
+      <Link to="/" aria-label="Древо — на главную" style={{ textDecoration: 'none', color: 'inherit' }}>
+        <BrandLockup size={28} />
       </Link>
       <nav>
         <NavLink to="/" end>

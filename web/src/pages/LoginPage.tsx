@@ -8,6 +8,7 @@ import {
   register,
   saveAuth,
 } from '../api'
+import { BrandLockup } from '../components/BrandLockup'
 import './LoginPage.css'
 
 type Mode = 'login' | 'register'
@@ -63,10 +64,13 @@ export function LoginPage() {
       <div className="login-composition">
         <header className="login-hero">
           <p className="eyebrow">Семейный архив</p>
-          <h1 className="brand brand-hero">
-            Древо
-            <span> · семейный архив</span>
-          </h1>
+          <div className="login-brand-row">
+            <BrandLockup size={48} withWordmark={false} />
+            <h1 className="brand brand-hero">
+              Древо
+              <span> · семейный архив</span>
+            </h1>
+          </div>
           <p className="lede">
             Имена, ветви и связи — в одном месте, спокойно и по-человечески.
           </p>
