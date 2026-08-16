@@ -706,3 +706,254 @@ describe("FamilyTreeService ensureTreeHasData claim", () => {
     expect(neo4j.write.mock.calls[0][0]).toContain("SET i.treeId");
   });
 });
+
+describe("FamilyTreeService createIndividual / createFamily / getFamily", () => {
+  let service: FamilyTreeService;
+  let neo4j: { read: jest.Mock; write: jest.Mock; executeTransaction: jest.Mock };
+
+  beforeEach(() => {
+    neo4j = {
+      read: jest.fn(),
+      write: jest.fn(),
+      executeTransaction: jest.fn().mockResolvedValue([]),
+    };
+    service = new FamilyTreeService(neo4j as unknown as Neo4jService);
+  });
+
+  it("createIndividual writes person and returns first record", async () => {
+    neo4j.write.mockResolvedValue({
+      records: [recordWith({ id: "I1", firstName: "Ada" })],
+    });
+    jest.spyOn(Neo4jResultUtils, "getFirstResult").mockReturnValue({
+      id: "I1",
+      firstName: "Ada",
+    } as any);
+
+    const created = await service.createIndividual("tree-1", {
+      firstName: "Ada",
+      lastName: "Lovelace",
+      sex: Sex.FEMALE,
+      gedcomId: "I1",
+    } as any);
+
+    expect(created).toEqual({ id: "I1", firstName: "Ada" });
+    expect(neo4j.write).toHaveBeenCalledWith(
+      expect.stringContaining("CREATE (i:Individual"),
+      expect.objectContaining({ id: "I1", treeId: "tree-1", firstName: "Ada" }),
+    );
+  });
+
+  it("createFamily links husband, wife, children then returns family", async () => {
+    const family = {
+      id: "F1",
+      husband: { id: "H1" },
+      wife: { id: "W1" },
+      children: [{ id: "C1" }],
+    };
+    jest.spyOn(service, "getFamily").mockResolvedValue(family as any);
+
+    await expect(
+      service.createFamily("tree-1", {
+        gedcomId: "F1",
+        husbandId: "H1",
+        wifeId: "W1",
+        childrenIds: ["C1"],
+        marriageDate: "1900",
+      } as any),
+    ).resolves.toEqual(family);
+
+    const queries = neo4j.executeTransaction.mock.calls[0][0] as Array<{
+      query: string;
+    }>;
+    expect(queries).toHaveLength(4);
+    expect(queries[1].query).toContain("[:HUSBAND]");
+    expect(queries[2].query).toContain("[:WIFE]");
+    expect(queries[3].query).toContain("[:CHILD]");
+  });
+
+  it("createFamily throws when family cannot be loaded after create", async () => {
+    jest.spyOn(service, "getFamily").mockResolvedValue(null);
+
+    await expect(
+      service.createFamily("tree-1", { gedcomId: "F-missing" } as any),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it("getFamily returns null when no records", async () => {
+    neo4j.read.mockResolvedValue({ records: [] });
+    await expect(service.getFamily("tree-1", "F1")).resolves.toBeNull();
+  });
+
+  it("getFamily assembles husband, wife, and children", async () => {
+    neo4j.read.mockResolvedValue({
+      records: [
+        {
+          get: (key: string) => {
+            if (key === "f") return { id: "F1" };
+            if (key === "husband") return { id: "H1" };
+            if (key === "wife") return { id: "W1" };
+            if (key === "children") return [{ id: "C1" }, null];
+            return null;
+          },
+        },
+      ],
+    });
+    jest.spyOn(Neo4jResultUtils, "normalizeValue").mockImplementation((v) => v);
+
+    const family = await service.getFamily("tree-1", "F1");
+    expect(family).toEqual({
+      id: "F1",
+      husband: { id: "H1" },
+      wife: { id: "W1" },
+      children: [{ id: "C1" }],
+    });
+  });
+});
+
+describe("FamilyTreeService ancestors / descendants / visualize / siblings", () => {
+  let service: FamilyTreeService;
+  let neo4j: { read: jest.Mock; write: jest.Mock; executeTransaction: jest.Mock };
+
+  const person = (id: string) => ({
+    id,
+    firstName: id,
+    lastName: "X",
+    sex: Sex.UNKNOWN,
+  });
+
+  beforeEach(() => {
+    neo4j = {
+      read: jest.fn(),
+      write: jest.fn().mockResolvedValue({ records: [] }),
+      executeTransaction: jest.fn().mockResolvedValue([]),
+    };
+    service = new FamilyTreeService(neo4j as unknown as Neo4jService);
+  });
+
+  it("getAncestors walks parent frontier", async () => {
+    jest
+      .spyOn(Neo4jResultUtils, "normalizeValue")
+      .mockImplementation((v) => v);
+    neo4j.read
+      .mockResolvedValueOnce({
+        records: [{ get: () => person("p1") }],
+      })
+      .mockResolvedValueOnce({
+        records: [{ get: () => person("gp1") }],
+      })
+      .mockResolvedValueOnce({ records: [] });
+
+    const ancestors = await service.getAncestors("tree-1", "c1", 3);
+    expect(ancestors.map((a) => a.id)).toEqual(["p1", "gp1"]);
+  });
+
+  it("getDescendants walks child frontier", async () => {
+    jest
+      .spyOn(Neo4jResultUtils, "normalizeValue")
+      .mockImplementation((v) => v);
+    neo4j.read
+      .mockResolvedValueOnce({
+        records: [{ get: () => person("c1") }],
+      })
+      .mockResolvedValueOnce({ records: [] });
+
+    const descendants = await service.getDescendants("tree-1", "p1", 2);
+    expect(descendants.map((d) => d.id)).toEqual(["c1"]);
+  });
+
+  it("visualizeTree returns empty graph when root missing", async () => {
+    jest.spyOn(service, "getIndividual").mockResolvedValue(null);
+    await expect(service.visualizeTree("tree-1", "missing")).resolves.toEqual({
+      nodes: [],
+      relationships: [],
+    });
+  });
+
+  it("visualizeTree collects related members across family links", async () => {
+    jest
+      .spyOn(service, "getIndividual")
+      .mockResolvedValue(person("root") as any);
+    jest.spyOn(Neo4jResultUtils, "normalizeValue").mockImplementation((v) => v);
+
+    neo4j.read.mockResolvedValueOnce({
+      records: [
+        {
+          get: (key: string) => {
+            if (key === "individualId") return "root";
+            if (key === "familyId") return "F1";
+            if (key === "type") return "HUSBAND";
+            if (key === "members") return [person("spouse")];
+            return null;
+          },
+        },
+      ],
+    }).mockResolvedValueOnce({ records: [] });
+
+    const graph = await service.visualizeTree("tree-1", "root", 2);
+    expect(graph.nodes.map((n) => n.id).sort()).toEqual(["root", "spouse"]);
+    expect(graph.relationships).toEqual([
+      {
+        source: "root",
+        target: "F1",
+        type: "HUSBAND",
+        familyId: "F1",
+      },
+    ]);
+  });
+
+  it("createRelationship supports CHILD and SIBLING", async () => {
+    jest
+      .spyOn(service, "getIndividual")
+      .mockResolvedValue(person("a") as any);
+    neo4j.read.mockResolvedValue({ records: [] });
+
+    await service.createRelationship("tree-1", {
+      fromIndividualId: "child",
+      toIndividualId: "parent",
+      relationshipType: RelationType.CHILD,
+    });
+    expect(neo4j.executeTransaction).toHaveBeenCalled();
+
+    neo4j.executeTransaction.mockClear();
+    neo4j.read.mockResolvedValue({ records: [] });
+    jest
+      .spyOn(service, "getIndividual")
+      .mockResolvedValue(person("s1") as any);
+
+    await service.createRelationship("tree-1", {
+      fromIndividualId: "s1",
+      toIndividualId: "s2",
+      relationshipType: RelationType.SIBLING,
+    });
+    expect(neo4j.executeTransaction).toHaveBeenCalled();
+  });
+
+  it("findPossibleRelationships maps path records", async () => {
+    neo4j.read.mockResolvedValue({
+      records: [
+        {
+          get: (key: string) => {
+            if (key === "path") return ["a", "b"];
+            if (key === "degree") return 2;
+            if (key === "types") return ["CHILD", "HUSBAND"];
+            return null;
+          },
+        },
+      ],
+    });
+
+    await expect(
+      service.findPossibleRelationships("tree-1", "a", "b"),
+    ).resolves.toEqual([
+      { path: ["a", "b"], degree: 2, types: ["CHILD", "HUSBAND"] },
+    ]);
+  });
+});
+
+function recordWith(props: Record<string, unknown>) {
+  return {
+    length: 1,
+    keys: ["i"],
+    get: () => props,
+  };
+}

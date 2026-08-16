@@ -28,9 +28,29 @@ describe("storage-url.utils", () => {
     expect(
       extractObjectKeyFromUrl(
         "https://my-bucket.s3.amazonaws.com/photo/x.jpg",
-        "https://my-bucket.s3.amazonaws.com",
+        "https://cdn.example",
         "my-bucket",
       ),
     ).toBe("photo/x.jpg");
+  });
+
+  it("extracts key from path-style URL when bucket matches", () => {
+    expect(
+      extractObjectKeyFromUrl(
+        "https://storage.example/my-bucket/photo/y.jpg",
+        "https://other.example",
+        "my-bucket",
+      ),
+    ).toBe("photo/y.jpg");
+  });
+
+  it("throws when URL shape is unrecognized", () => {
+    expect(() =>
+      extractObjectKeyFromUrl(
+        "https://evil.example/not-our-bucket/photo/z.jpg",
+        "https://cdn.example",
+        "my-bucket",
+      ),
+    ).toThrow("Cannot extract object key from media URL");
   });
 });
