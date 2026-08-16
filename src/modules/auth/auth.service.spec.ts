@@ -1,4 +1,5 @@
 import { UnauthorizedException } from "@nestjs/common";
+import * as bcrypt from "bcrypt";
 import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import { Neo4jService } from "../../neo4j/neo4j.service";
@@ -26,6 +27,8 @@ describe("AuthService", () => {
     neo4j = { read: jest.fn(), write: jest.fn() };
     jwtService = { signAsync: jest.fn().mockResolvedValue("signed-token") };
     treeAccess = { getEffectiveRole: jest.fn(), assertMinRole: jest.fn() };
+    (bcrypt.hash as jest.Mock).mockResolvedValue("hashed-password");
+    (bcrypt.compare as jest.Mock).mockResolvedValue(true);
     service = new (AuthService as unknown as new (
       neo4j: Neo4jService,
       jwtService: JwtService,
@@ -84,6 +87,57 @@ describe("AuthService", () => {
     await expect(service.getProfile("user-1", "tree-2")).rejects.toThrow(
       UnauthorizedException,
     );
+  });
+
+  it("runs bcrypt.compare when login email is unknown", async () => {
+    neo4j.read.mockResolvedValue({ records: [] });
+    (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+
+    await expect(
+      service.login({ email: "missing@example.com", password: "secret123" }),
+    ).rejects.toThrow(UnauthorizedException);
+
+    expect(bcrypt.compare).toHaveBeenCalledWith(
+      "secret123",
+      expect.any(String),
+    );
+  });
+
+  it("rejects unknown-email login with generic message", async () => {
+    neo4j.read.mockResolvedValue({ records: [] });
+    (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+
+    await expect(
+      service.login({ email: "missing@example.com", password: "secret123" }),
+    ).rejects.toThrow(/Invalid email or password/);
+  });
+
+  it("rejects duplicate register with neutral message after hashing", async () => {
+    neo4j.read.mockResolvedValue({
+      records: [
+        record({
+          u: {
+            id: "user-1",
+            email: "ada@example.com",
+            passwordHash: "hashed-password",
+            name: "Ada",
+          },
+        }),
+      ],
+    });
+    (bcrypt.hash as jest.Mock).mockClear();
+
+    await expect(
+      service.register({
+        email: "ada@example.com",
+        password: "secret123",
+        name: "Ada",
+      }),
+    ).rejects.toMatchObject({
+      message: "Unable to register with the provided email",
+    });
+
+    expect(bcrypt.hash).toHaveBeenCalledWith("secret123", 10);
   });
 
   it("signs login sessions with owner role", async () => {

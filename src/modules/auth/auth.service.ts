@@ -12,6 +12,7 @@ import { LoginDto } from "./dto/login.dto";
 import { AuthUser, JwtPayload } from "./interfaces/auth.interface";
 import { TreeRole } from "../trees/enums/tree-role.enum";
 import { TreeAccessService } from "../trees/services/tree-access.service";
+import { padLoginTiming, padRegisterTiming } from "./auth-timing.utils";
 
 type UserNode = {
   id: string;
@@ -39,7 +40,8 @@ export class AuthService {
   }> {
     const existing = await this.findUserByEmail(dto.email);
     if (existing) {
-      throw new ConflictException("Email already registered");
+      await padRegisterTiming(dto.password);
+      throw new ConflictException("Unable to register with the provided email");
     }
 
     const userId = randomUUID();
@@ -88,6 +90,7 @@ export class AuthService {
   async login(dto: LoginDto): Promise<{ accessToken: string; user: AuthUser }> {
     const row = await this.findUserWithTree(dto.email);
     if (!row) {
+      await padLoginTiming(dto.password);
       throw new UnauthorizedException("Invalid email or password");
     }
 
