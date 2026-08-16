@@ -10,3 +10,6 @@
 .vscode
 web/node_modules
 web/dist
+
+# Jest
+coverage/

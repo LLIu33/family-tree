@@ -12,6 +12,7 @@
     "build:web": "npm ci --prefix web && npm run build --prefix web",
     "build:render": "npm run build && npm run build:web && node scripts/copy-web-public.mjs",
     "test": "jest",
+    "test:cov": "jest --coverage",
     "lint": "eslint \"src/**/*.{ts,js}\" && tsc --noEmit",
     "lint:eslint": "eslint \"src/**/*.{ts,js}\"",
     "typecheck": "tsc --noEmit"
@@ -27,7 +28,17 @@
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "collectCoverageFrom": [
+      "**/*.{ts,js}",
+      "!**/*.module.ts",
+      "!**/*.interface.ts",
+      "!**/main.ts",
+      "!**/*.dto.ts",
+      "!**/index.ts"
+    ],
+    "coverageDirectory": "../coverage",
+    "coverageReporters": ["text", "text-summary", "lcov"]
   },
   "dependencies": {
     "@nestjs/common": "^11.0.20",
