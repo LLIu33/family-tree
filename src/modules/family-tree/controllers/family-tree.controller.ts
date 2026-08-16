@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Header,
   Body,
   Param,
   UseInterceptors,
@@ -19,6 +20,7 @@ import { FileInterceptor } from "@nestjs/platform-express";
 import { memoryStorage } from "multer";
 import { FamilyTreeService } from "../services/family-tree.service";
 import { MediaService } from "../services/media.service";
+import { GedcomExportService } from "../services/gedcom-export.service";
 import { GedcomParserService } from "../services/gedcom-parser.service";
 import {
   AddChildDto,
@@ -51,7 +53,8 @@ export class FamilyTreeController {
   constructor(
     private readonly familyTreeService: FamilyTreeService,
     private readonly mediaService: MediaService,
-    private readonly gedcomParserService: GedcomParserService
+    private readonly gedcomParserService: GedcomParserService,
+    private readonly gedcomExportService: GedcomExportService
   ) {}
 
   @Post("individuals")
@@ -202,6 +205,15 @@ export class FamilyTreeController {
       description,
       dateTaken: dateTaken?.toISOString(),
     } as any);
+  }
+
+  @Header("Content-Type", "text/plain; charset=utf-8")
+  @Header("Content-Disposition", 'attachment; filename="family-tree.ged"')
+  @Get("export/gedcom")
+  @ApiOperation({ summary: "Export family tree as GEDCOM" })
+  @ApiResponse({ status: 200, description: "GEDCOM file" })
+  async exportGedcom(@CurrentUser() user: AuthUser): Promise<string> {
+    return this.gedcomExportService.exportTree(user.treeId);
   }
 
   @Post("import/gedcom")

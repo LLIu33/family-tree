@@ -381,4 +381,30 @@ export async function importGedcom(file: File): Promise<unknown> {
   })
 }
 
+export async function exportGedcom(
+  filename = 'family-tree.ged',
+): Promise<void> {
+  const token = getToken()
+  const res = await fetch(`${API_URL}/family-tree/export/gedcom`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  }).catch(() => {
+    throw new ApiError(0, `Не удалось связаться с API (${API_URL}).`)
+  })
+
+  if (!res.ok) {
+    const message = (await res.text().catch(() => '')) || res.statusText
+    throw new ApiError(res.status, message || 'Экспорт не удался')
+  }
+
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
 export { API_URL }

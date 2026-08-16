@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { FamilyTreeService } from "./services/family-tree.service";
+import { GedcomExportService } from "./services/gedcom-export.service";
 import { GedcomParserService } from "./services/gedcom-parser.service";
 import { EventService } from "./services/event.service";
 import { FamilyTreeController } from "./controllers/family-tree.controller";
@@ -14,6 +15,7 @@ import { AuthModule } from "../auth/auth.module";
   controllers: [FamilyTreeController, MediaController],
   providers: [
     FamilyTreeService,
+    GedcomExportService,
     GedcomParserService,
     EventService,
     MediaService,

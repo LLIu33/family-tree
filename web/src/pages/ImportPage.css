@@ -11,3 +11,13 @@
 .import-panel .btn {
   width: 100%;
 }
+
+.export-panel {
+  margin-top: 1.25rem;
+}
+
+.export-title {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  margin: 0 0 0.35rem;
+}
