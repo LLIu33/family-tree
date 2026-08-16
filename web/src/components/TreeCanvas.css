@@ -35,6 +35,23 @@
   outline-offset: 1px;
 }
 
+.tree-surname select {
+  min-width: 9rem;
+  max-width: 14rem;
+  height: 2.25rem;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--ink);
+  padding: 0 0.65rem;
+  font: inherit;
+}
+
+.tree-surname select:focus {
+  outline: 2px solid rgba(44, 95, 78, 0.35);
+  outline-offset: 1px;
+}
+
 .tree-search-hits {
   position: absolute;
   z-index: 5;

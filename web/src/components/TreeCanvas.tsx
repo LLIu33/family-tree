@@ -9,6 +9,13 @@ import {
 import type { IndividualNode, TreeRelationship } from '../api'
 import { PersonAvatar } from './PersonAvatar'
 import {
+  collectSurnames,
+  edgeIsHot,
+  isSurnameMismatch,
+  nodeHighlightFlags,
+  normalizeSurname,
+} from './treeHighlight'
+import {
   CARD_H,
   CARD_W,
   PAD,
@@ -80,6 +87,7 @@ export function TreeCanvas({
   const [ty, setTy] = useState(0)
   const [hoverId, setHoverId] = useState<string | null>(null)
   const [query, setQuery] = useState('')
+  const [surnameFilter, setSurnameFilter] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
   const dragRef = useRef<{
     pointerId: number
@@ -99,6 +107,18 @@ export function TreeCanvas({
     () => layoutNodes(nodes, relationships, rootId),
     [nodes, relationships, rootId],
   )
+  const surnames = useMemo(() => collectSurnames(nodes), [nodes])
+
+  useEffect(() => {
+    if (
+      surnameFilter &&
+      !surnames.some(
+        (surname) => normalizeSurname(surname) === normalizeSurname(surnameFilter),
+      )
+    ) {
+      setSurnameFilter(null)
+    }
+  }, [surnames, surnameFilter])
 
   const pos = useMemo(() => {
     const m = new Map<string, LaidOutNode>()
@@ -123,7 +143,24 @@ export function TreeCanvas({
     () => relatedIds(focusId, relationships),
     [focusId, relationships],
   )
-  const dimEdges = Boolean(focusId)
+  const focusActive = Boolean(focusId)
+  const dimActive = focusActive || Boolean(surnameFilter)
+  const emphasized = useMemo(() => {
+    const set = new Set<string>()
+    for (const n of laid) {
+      const surnameMismatch = isSurnameMismatch(n.lastName, surnameFilter)
+      const { isDim } = nodeHighlightFlags({
+        surnameMismatch,
+        focusActive,
+        inRelated: hot.has(n.id),
+      })
+      if (!isDim) set.add(n.id)
+    }
+    if (!dimActive) {
+      for (const n of laid) set.add(n.id)
+    }
+    return set
+  }, [laid, surnameFilter, focusActive, hot, dimActive])
 
   const searchHits = useMemo(() => {
     const q = query.trim()
@@ -281,6 +318,22 @@ export function TreeCanvas({
             </ul>
           )}
         </form>
+        <label className="tree-surname">
+          <span className="sr-only">Фамилия</span>
+          <select
+            value={surnameFilter ?? ''}
+            onChange={(e) =>
+              setSurnameFilter(e.target.value ? e.target.value : null)
+            }
+          >
+            <option value="">Все фамилии</option>
+            {surnames.map((surname) => (
+              <option key={surname} value={surname}>
+                {surname}
+              </option>
+            ))}
+          </select>
+        </label>
         <div className="tree-zoom">
           <button
             type="button"
@@ -366,13 +419,16 @@ export function TreeCanvas({
             {spouseEdges.map((rel, i) => {
               const a = pos.get(rel.source)!
               const b = pos.get(rel.target)!
-              const isHot =
-                !dimEdges || (hot.has(rel.source) && hot.has(rel.target))
+              const isHot = edgeIsHot(
+                emphasized.has(rel.source),
+                emphasized.has(rel.target),
+                dimActive,
+              )
               const classes = [
                 'tree-edge',
                 'spouse',
-                dimEdges && !isHot ? 'is-dim' : '',
-                dimEdges && isHot ? 'is-hot' : '',
+                dimActive && !isHot ? 'is-dim' : '',
+                dimActive && isHot ? 'is-hot' : '',
               ]
                 .filter(Boolean)
                 .join(' ')
@@ -388,12 +444,12 @@ export function TreeCanvas({
 
             {familyCombs.map((comb) => {
               const isHot =
-                !dimEdges || comb.memberIds.some((id) => hot.has(id))
+                !dimActive || comb.memberIds.some((id) => emphasized.has(id))
               const classes = [
                 'tree-edge',
                 'family',
-                dimEdges && !isHot ? 'is-dim' : '',
-                dimEdges && isHot ? 'is-hot' : '',
+                dimActive && !isHot ? 'is-dim' : '',
+                dimActive && isHot ? 'is-hot' : '',
               ]
                 .filter(Boolean)
                 .join(' ')
@@ -414,67 +470,77 @@ export function TreeCanvas({
                 return rank(a.id) - rank(b.id)
               })
               .map((n) => {
-              const years = [yearOf(n.birthDate), yearOf(n.deathDate)]
-                .filter(Boolean)
-                .join(' – ')
-              const names = cardNameLines(n)
-              const isSelected = n.id === selectedId
-              const isRoot = n.id === rootId
-              const isDim = dimEdges && !hot.has(n.id)
-              const isLinkPick = pickedIds.has(n.id)
-              return (
-                <foreignObject
-                  key={n.id}
-                  x={n.x}
-                  y={n.y}
-                  width={CARD_W}
-                  height={CARD_H}
-                  className={`tree-fo${isSelected || isRoot ? ' is-front' : ''}`}
-                >
-                  <div
-                    className={[
-                      'tree-node',
-                      isRoot ? 'is-root' : '',
-                      isSelected ? 'is-selected' : '',
-                      isLinkPick ? 'is-link-pick' : '',
-                      isDim ? 'is-dim' : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    title={[names.primary, names.secondary, years]
-                      .filter(Boolean)
-                      .join(' · ')}
-                    role="button"
-                    tabIndex={0}
-                    aria-pressed={linkMode ? isLinkPick : isSelected}
-                    onMouseEnter={() => setHoverId(n.id)}
-                    onMouseLeave={() =>
-                      setHoverId((current) => (current === n.id ? null : current))
-                    }
-                    onClick={() => activateNode(n.id)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault()
-                        activateNode(n.id)
-                      }
-                    }}
+                const years = [yearOf(n.birthDate), yearOf(n.deathDate)]
+                  .filter(Boolean)
+                  .join(' – ')
+                const names = cardNameLines(n)
+                const isSelected = n.id === selectedId
+                const isRoot = n.id === rootId
+                const surnameMismatch = isSurnameMismatch(
+                  n.lastName,
+                  surnameFilter,
+                )
+                const { isDim } = nodeHighlightFlags({
+                  surnameMismatch,
+                  focusActive,
+                  inRelated: hot.has(n.id),
+                })
+                const isLinkPick = pickedIds.has(n.id)
+                return (
+                  <foreignObject
+                    key={n.id}
+                    x={n.x}
+                    y={n.y}
+                    width={CARD_W}
+                    height={CARD_H}
+                    className={`tree-fo${isSelected || isRoot ? ' is-front' : ''}`}
                   >
-                    <PersonAvatar person={n} size="sm" />
-                    <div className="tree-node__text">
-                      <strong className="tree-node__primary">
-                        {names.primary}
-                      </strong>
-                      {names.secondary ? (
-                        <span className="tree-node__secondary">
-                          {names.secondary}
-                        </span>
-                      ) : null}
-                      <span className="tree-node__years">{years || '—'}</span>
+                    <div
+                      className={[
+                        'tree-node',
+                        isRoot ? 'is-root' : '',
+                        isSelected ? 'is-selected' : '',
+                        isLinkPick ? 'is-link-pick' : '',
+                        isDim ? 'is-dim' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                      title={[names.primary, names.secondary, years]
+                        .filter(Boolean)
+                        .join(' · ')}
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={linkMode ? isLinkPick : isSelected}
+                      onMouseEnter={() => setHoverId(n.id)}
+                      onMouseLeave={() =>
+                        setHoverId((current) =>
+                          current === n.id ? null : current,
+                        )
+                      }
+                      onClick={() => activateNode(n.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          activateNode(n.id)
+                        }
+                      }}
+                    >
+                      <PersonAvatar person={n} size="md" />
+                      <div className="tree-node__text">
+                        <strong className="tree-node__primary">
+                          {names.primary}
+                        </strong>
+                        {names.secondary ? (
+                          <span className="tree-node__secondary">
+                            {names.secondary}
+                          </span>
+                        ) : null}
+                        <span className="tree-node__years">{years || '—'}</span>
+                      </div>
                     </div>
-                  </div>
-                </foreignObject>
-              )
-            })}
+                  </foreignObject>
+                )
+              })}
           </svg>
         </div>
       </div>

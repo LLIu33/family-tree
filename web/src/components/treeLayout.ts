@@ -8,6 +8,191 @@ export const SPOUSE_GAP = 18
 export const PAD = 48
 const UNIT = CARD_W + GAP_X
 
+function areSpouses(
+  a: string,
+  b: string,
+  spousesOf: Map<string, string[]>,
+): boolean {
+  return (spousesOf.get(a) ?? []).includes(b)
+}
+
+function minStep(
+  leftId: string,
+  rightId: string,
+  spousesOf: Map<string, string[]>,
+): number {
+  return areSpouses(leftId, rightId, spousesOf)
+    ? CARD_W + SPOUSE_GAP
+    : UNIT
+}
+
+function byOriginalIndex(index: Map<string, number>) {
+  return (a: string, b: string): number =>
+    (index.get(a) ?? 0) - (index.get(b) ?? 0)
+}
+
+function linkedMembers(
+  id: string,
+  component: Set<string>,
+  spousesOf: Map<string, string[]>,
+  index: Map<string, number>,
+): string[] {
+  return (spousesOf.get(id) ?? [])
+    .filter((spouseId) => component.has(spouseId))
+    .sort(byOriginalIndex(index))
+}
+
+function firstUnvisitedLinked(
+  id: string,
+  component: Set<string>,
+  spousesOf: Map<string, string[]>,
+  index: Map<string, number>,
+  visited: Set<string>,
+): string | undefined {
+  return linkedMembers(id, component, spousesOf, index).find(
+    (spouseId) => !visited.has(spouseId),
+  )
+}
+
+type ChainSide = 'left' | 'right'
+
+function nextChainMember(
+  chain: string[],
+  component: Set<string>,
+  spousesOf: Map<string, string[]>,
+  index: Map<string, number>,
+  visited: Set<string>,
+): { id: string; side: ChainSide } | undefined {
+  const left = chain[0]
+  const right = chain[chain.length - 1]
+  const firstSide: ChainSide = chain.length === 1 ? 'right' : 'left'
+  const secondSide: ChainSide = chain.length === 1 ? 'left' : 'right'
+  const firstId = firstSide === 'left' ? left : right
+  const secondId = secondSide === 'left' ? left : right
+  const first = firstUnvisitedLinked(firstId, component, spousesOf, index, visited)
+  if (first != null) return { id: first, side: firstSide }
+  const second = firstUnvisitedLinked(secondId, component, spousesOf, index, visited)
+  if (second != null) return { id: second, side: secondSide }
+  return undefined
+}
+
+function orderSpouseComponent(
+  members: string[],
+  spousesOf: Map<string, string[]>,
+  index: Map<string, number>,
+): string[] {
+  const component = new Set(members)
+  const seed = members.slice().sort(byOriginalIndex(index))[0]
+  const chain = [seed]
+  const visited = new Set(chain)
+
+  while (visited.size < members.length) {
+    const next = nextChainMember(chain, component, spousesOf, index, visited)
+    if (next == null) {
+      const remaining = members.filter((id) => !visited.has(id))
+      remaining.sort(byOriginalIndex(index))
+      chain.push(remaining[0])
+      visited.add(remaining[0])
+      continue
+    }
+    if (next.side === 'right') chain.push(next.id)
+    else chain.unshift(next.id)
+    visited.add(next.id)
+  }
+
+  return chain
+}
+
+/** Connected spouse components within `ids`, stable by first appearance. */
+export function buildSpouseBlocks(
+  ids: string[],
+  spousesOf: Map<string, string[]>,
+): string[][] {
+  const inGen = new Set(ids)
+  const index = new Map(ids.map((id, i) => [id, i]))
+  const visited = new Set<string>()
+  const blocks: string[][] = []
+
+  for (const id of ids) {
+    if (visited.has(id)) continue
+    const block: string[] = []
+    const queue = [id]
+    visited.add(id)
+    while (queue.length > 0) {
+      const cur = queue.shift()!
+      block.push(cur)
+      for (const spouseId of spousesOf.get(cur) ?? []) {
+        if (!inGen.has(spouseId) || visited.has(spouseId)) continue
+        visited.add(spouseId)
+        queue.push(spouseId)
+      }
+    }
+    block.splice(0, block.length, ...orderSpouseComponent(block, spousesOf, index))
+    blocks.push(block)
+  }
+
+  blocks.sort(
+    (a, b) =>
+      Math.min(...a.map((id) => index.get(id) ?? 0)) -
+      Math.min(...b.map((id) => index.get(id) ?? 0)),
+  )
+  return blocks
+}
+
+export function orderIdsWithSpouseBlocks(
+  ids: string[],
+  spousesOf: Map<string, string[]>,
+): string[] {
+  return buildSpouseBlocks(ids, spousesOf).flat()
+}
+
+export function packBlocks(
+  blocks: string[][],
+  xHint: Map<string, number>,
+  spousesOf: Map<string, string[]>,
+): Map<string, number> {
+  const scored = blocks.map((block) => {
+    const hints = block
+      .map((id) => xHint.get(id))
+      .filter((x): x is number => x != null)
+    const hint =
+      hints.length === 0
+        ? PAD
+        : hints.reduce((sum, x) => sum + x, 0) / hints.length
+    return { block, hint }
+  })
+  scored.sort((a, b) => a.hint - b.hint || a.block[0].localeCompare(b.block[0]))
+
+  const xPos = new Map<string, number>()
+  let cursor = PAD
+  let prevId: string | null = null
+
+  for (const { block, hint } of scored) {
+    const widths: number[] = []
+    for (let i = 0; i < block.length; i++) {
+      if (i === 0) widths.push(0)
+      else widths.push(minStep(block[i - 1], block[i], spousesOf))
+    }
+    const span = widths.reduce((sum, width) => sum + width, 0)
+    let start = Math.max(cursor, hint - span / 2)
+    if (prevId != null) {
+      start = Math.max(start, cursor + minStep(prevId, block[0], spousesOf))
+    } else {
+      start = Math.max(PAD, start)
+    }
+
+    let x = start
+    for (let i = 0; i < block.length; i++) {
+      if (i > 0) x += minStep(block[i - 1], block[i], spousesOf)
+      xPos.set(block[i], x)
+    }
+    cursor = x
+    prevId = block[block.length - 1]
+  }
+
+  return xPos
+}
+
 export interface LaidOutNode extends IndividualNode {
   x: number
   y: number
@@ -30,24 +215,6 @@ function pushUnique(
   if (!map.has(key)) map.set(key, [])
   const list = map.get(key)!
   if (!list.includes(value)) list.push(value)
-}
-
-function areSpouses(
-  a: string,
-  b: string,
-  spousesOf: Map<string, string[]>,
-): boolean {
-  return (spousesOf.get(a) ?? []).includes(b)
-}
-
-function minStep(
-  leftId: string,
-  rightId: string,
-  spousesOf: Map<string, string[]>,
-): number {
-  return areSpouses(leftId, rightId, spousesOf)
-    ? CARD_W + SPOUSE_GAP
-    : UNIT
 }
 
 /**
@@ -157,21 +324,9 @@ export function layoutNodes(
   }
 
   for (const g of gens) {
-    const ids = byGen.get(g)!
-    const placed = new Set<string>()
-    const next: string[] = []
-    for (const id of ids) {
-      if (placed.has(id)) continue
-      next.push(id)
-      placed.add(id)
-      for (const s of spousesOf.get(id) ?? []) {
-        if (generation.get(s) !== g || placed.has(s)) continue
-        next.push(s)
-        placed.add(s)
-      }
-    }
-    byGen.set(g, next)
-    next.forEach((id, i) => order.set(id, i))
+    const ids = orderIdsWithSpouseBlocks(byGen.get(g)!, spousesOf)
+    byGen.set(g, ids)
+    ids.forEach((id, i) => order.set(id, i))
   }
 
   const xPos = new Map<string, number>()
@@ -180,27 +335,10 @@ export function layoutNodes(
   )
 
   const packLayer = (ids: string[]): string[] => {
-    const ordered = ids
-      .slice()
-      .sort(
-        (a, b) =>
-          (xPos.get(a) ?? 0) - (xPos.get(b) ?? 0) || a.localeCompare(b),
-      )
-    let prevX = -Infinity
-    let prevId: string | null = null
-    for (const id of ordered) {
-      let x = xPos.get(id) ?? PAD
-      if (prevId != null) {
-        const minX = prevX + minStep(prevId, id, spousesOf)
-        if (x < minX) x = minX
-      } else if (x < PAD) {
-        x = PAD
-      }
-      xPos.set(id, x)
-      prevX = x
-      prevId = id
-    }
-    return ordered
+    const blocks = buildSpouseBlocks(ids, spousesOf)
+    const packed = packBlocks(blocks, xPos, spousesOf)
+    for (const [id, x] of packed) xPos.set(id, x)
+    return blocks.flat()
   }
 
   {

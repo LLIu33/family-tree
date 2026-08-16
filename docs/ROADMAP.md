@@ -9,6 +9,7 @@
 ### Инфраструктура и качество
 
 - [ ] **CI + test coverage** — GitHub Actions: lint, typecheck, test, build; порог coverage и отчёт в CI
+- [ ] **Документация по существующему функционалу** — описание API, auth, модели дерева, импорта GEDCOM, media/S3 и веб-UI
 - [ ] **Rate limiting / hardening auth** — защита login/register на публичном демо
 
 ### Продукт
