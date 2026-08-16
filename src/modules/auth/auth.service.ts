@@ -226,7 +226,7 @@ export class AuthService {
       MATCH (u:User {id: $userId})
       RETURN CASE
         WHEN u.passwordChangedAt IS NULL THEN null
-        ELSE datetime.epochMillis(u.passwordChangedAt)
+        ELSE u.passwordChangedAt.epochMillis
       END AS changedMs
       `,
       { userId },

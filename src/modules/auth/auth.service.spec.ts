@@ -222,6 +222,18 @@ describe("AuthService", () => {
     });
   });
 
+  it("reads passwordChangedAt via datetime epochMillis property", async () => {
+    neo4j.read.mockResolvedValue({
+      records: [record({ changedMs: 2_000 })],
+    });
+
+    await service.assertJwtPasswordFresh("user-1", 2_000);
+
+    const query = neo4j.read.mock.calls[0][0] as string;
+    expect(query).toContain("u.passwordChangedAt.epochMillis");
+    expect(query).not.toContain("datetime.epochMillis(");
+  });
+
   it("assertJwtPasswordFresh rejects when passwordChangedAt is newer than pwd claim", async () => {
     neo4j.read.mockResolvedValue({
       records: [record({ changedMs: 2_000 })],
