@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { ApiError, resetPassword } from '../api'
+import { ApiError, clearAuth, resetPassword } from '../api'
 import { BrandLockup } from '../components/BrandLockup'
 import './LoginPage.css'
 
@@ -56,6 +56,7 @@ export function ResetPasswordPage() {
     setPending(true)
     try {
       await resetPassword(token, password)
+      clearAuth()
       navigate('/login', { replace: true })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Не удалось обновить пароль')
