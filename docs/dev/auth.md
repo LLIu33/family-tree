@@ -6,9 +6,29 @@
 
 | Метод | Путь | Доступ | Назначение |
 |-------|------|--------|------------|
-| `POST` | `/auth/register` | публичный | Пользователь + личное дерево (`OWNS`), JWT владельца |
+| `POST` | `/auth/register` | публичный | Пользователь + личное дерево (`OWNS`), JWT владельца; дубликат email → `409` |
 | `POST` | `/auth/login` | публичный | JWT для **личного** дерева (`OWNS`) |
 | `GET` | `/auth/me` | JWT | Профиль активной сессии |
+
+## Rate limiting
+
+`POST /auth/login` and `POST /auth/register` are rate-limited **per client IP** (in-memory; resets on process restart). Defaults:
+
+| Endpoint | Limit | Window |
+|----------|-------|--------|
+| `POST /auth/login` | 5 | 60s |
+| `POST /auth/register` | 3 | 60s |
+
+Env: `AUTH_THROTTLE_TTL` (ms), `AUTH_THROTTLE_LIMIT_LOGIN`, `AUTH_THROTTLE_LIMIT_REGISTER`.
+
+Exceeding the limit → `429 Too Many Requests`. Other routes are not covered by these auth throttlers.
+
+Behind a reverse proxy, the API uses Express `trust proxy` so the client IP is taken from the proxy headers.
+
+## Auth hardening notes
+
+- Login failures always use `Invalid email or password` (unknown email still runs a dummy bcrypt compare).
+- Duplicate register → `409` with `Unable to register with the provided email` (dummy bcrypt hash first). Full email privacy needs verification/recovery later.
 
 Тело register: `email`, `password` (6–72), `name`; опционально `treeName` (иначе `Древо: {name}`).
 

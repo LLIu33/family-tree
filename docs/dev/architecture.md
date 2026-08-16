@@ -28,6 +28,7 @@ Swagger: `/api-docs`, если `SWAGGER_ENABLED=true`.
 ## Авторизация на API
 
 - Публично: `POST /auth/register`, `POST /auth/login`, `GET /health`.
+- `POST /auth/login` и `POST /auth/register` ограничены по IP (см. [auth.md](auth.md)).
 - Остальное — `Authorization: Bearer <JWT>`.
 - Мутации family-tree/media: `editor` или `owner`. Чтение: `viewer+`. Админ приглашений и участников: только `owner`.
 

@@ -10,7 +10,7 @@
 
 - [x] **CI + test coverage** — GitHub Actions: lint, typecheck, test, build; отчёт coverage в CI (без блокирующего порога)
 - [x] **Документация по существующему функционалу** — описание API, auth, модели дерева, импорта GEDCOM, media/S3 и веб-UI (`docs/user/`, `docs/dev/`)
-- [ ] **Rate limiting / hardening auth** — защита login/register на публичном демо
+- [x] **Rate limiting / hardening auth** — защита login/register на публичном демо
 
 ### Продукт
 
