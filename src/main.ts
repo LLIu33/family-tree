@@ -24,6 +24,7 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: ["error", "warn", "log"],
   });
+  app.set("trust proxy", 1);
   const configService = app.get(ConfigService);
 
   app.enableCors({

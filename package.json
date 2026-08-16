@@ -38,7 +38,11 @@
       "!**/index.ts"
     ],
     "coverageDirectory": "../coverage",
-    "coverageReporters": ["text", "text-summary", "lcov"]
+    "coverageReporters": [
+      "text",
+      "text-summary",
+      "lcov"
+    ]
   },
   "dependencies": {
     "@nestjs/common": "^11.0.20",
@@ -48,6 +52,7 @@
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.20",
     "@nestjs/swagger": "^11.1.4",
+    "@nestjs/throttler": "^6.5.0",
     "aws-sdk": "^2.1692.0",
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
