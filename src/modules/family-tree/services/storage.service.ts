@@ -1,6 +1,10 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { v4 as uuidV4 } from "uuid";
+import {
+  buildPublicObjectUrl,
+  extractObjectKeyFromUrl,
+} from "./storage-url.utils";
 
 type S3Client = {
   upload: (params: Record<string, unknown>) => { promise: () => Promise<unknown> };
@@ -24,6 +28,43 @@ export class StorageService {
     );
   }
 
+  private bucketName(): string {
+    return (
+      this.configService.get<string>("storage.s3.bucket") ||
+      this.configService.get<string>("AWS_S3_BUCKET") ||
+      ""
+    );
+  }
+
+  private endpoint(): string | undefined {
+    const value =
+      this.configService.get<string>("storage.s3.endpoint") ||
+      this.configService.get<string>("AWS_S3_ENDPOINT") ||
+      "";
+    return value.trim() || undefined;
+  }
+
+  private forcePathStyle(): boolean {
+    const configured = this.configService.get<boolean>("storage.s3.forcePathStyle");
+    if (configured !== undefined && configured !== null) {
+      return configured;
+    }
+    return Boolean(this.endpoint());
+  }
+
+  /** Public base for object URLs (no trailing slash). */
+  private publicUrlBase(): string {
+    const configured =
+      this.configService.get<string>("storage.s3.publicUrlBase") ||
+      this.configService.get<string>("AWS_S3_PUBLIC_URL_BASE") ||
+      "";
+    const trimmed = configured.trim().replace(/\/+$/, "");
+    if (trimmed) return trimmed;
+
+    const bucket = this.bucketName();
+    return `https://${bucket}.s3.amazonaws.com`;
+  }
+
   private async requireS3(): Promise<S3Client> {
     if (this.storageType() !== "s3") {
       throw new Error("S3 storage is not configured (STORAGE_TYPE is not s3)");
@@ -32,10 +73,23 @@ export class StorageService {
     if (!this.s3Init) {
       this.s3Init = (async () => {
         const AWS = (await import("aws-sdk")).default;
+        const endpoint = this.endpoint();
         const client = new AWS.S3({
-          accessKeyId: this.configService.get("AWS_ACCESS_KEY_ID"),
-          secretAccessKey: this.configService.get("AWS_SECRET_ACCESS_KEY"),
-          region: this.configService.get("AWS_REGION"),
+          accessKeyId:
+            this.configService.get("storage.s3.accessKey") ||
+            this.configService.get("AWS_ACCESS_KEY_ID"),
+          secretAccessKey:
+            this.configService.get("storage.s3.secretKey") ||
+            this.configService.get("AWS_SECRET_ACCESS_KEY"),
+          region:
+            this.configService.get("storage.s3.region") ||
+            this.configService.get("AWS_REGION"),
+          ...(endpoint
+            ? {
+                endpoint,
+                s3ForcePathStyle: this.forcePathStyle(),
+              }
+            : {}),
         }) as unknown as S3Client;
         this.s3 = client;
         return client;
@@ -49,7 +103,8 @@ export class StorageService {
     type: string
   ): Promise<{ url: string; thumbnailUrl: string }> {
     const s3 = await this.requireS3();
-    const bucketName = this.configService.get("AWS_S3_BUCKET");
+    const bucketName = this.bucketName();
+    const publicBase = this.publicUrlBase();
     const uploadId = uuidV4();
 
     const fileKey = `${type.toLowerCase()}/${uploadId}_original.${file.originalname
@@ -86,17 +141,17 @@ export class StorageService {
     }
 
     return {
-      url: `https://${bucketName}.s3.amazonaws.com/${fileKey}`,
+      url: buildPublicObjectUrl(publicBase, fileKey),
       thumbnailUrl: thumbnailKey
-        ? `https://${bucketName}.s3.amazonaws.com/${thumbnailKey}`
+        ? buildPublicObjectUrl(publicBase, thumbnailKey)
         : "",
     };
   }
 
   async deleteFile(url: string): Promise<void> {
     const s3 = await this.requireS3();
-    const bucketName = this.configService.get("AWS_S3_BUCKET");
-    const key = url.replace(`https://${bucketName}.s3.amazonaws.com/`, "");
+    const bucketName = this.bucketName();
+    const key = extractObjectKeyFromUrl(url, this.publicUrlBase(), bucketName);
 
     await s3
       .deleteObject({

@@ -97,7 +97,7 @@ Protected API routes need `Authorization: Bearer <token>` (Swagger Authorize but
 Notes:
 
 - `API_PREFIX` in `.env` is not applied yet — routes are `/family-tree/...`, not `/api/...`.
-- Core CRUD / GEDCOM / tree queries work without AWS. Avatar upload needs real `AWS_*` values with `STORAGE_TYPE=s3`.
+- Core CRUD / GEDCOM / tree queries work without object storage. Avatar upload needs `STORAGE_TYPE=s3` and real `AWS_*` values (AWS S3 or S3-compatible: set `AWS_S3_ENDPOINT` + `AWS_S3_PUBLIC_URL_BASE`, e.g. Yandex `https://storage.yandexcloud.net`).
 - Change the default Neo4j password before any non-local use.
 
 ## Main REST endpoints
@@ -128,7 +128,7 @@ Notes:
 
 - **No authentication** — treat as open/dev API for now
 - **No UI** — `visualize` returns JSON only
-- **Media storage is S3-only** — `STORAGE_TYPE=local` is not implemented yet
+- **Media storage is S3-compatible only** — `STORAGE_TYPE=local` is not implemented yet. For Yandex Object Storage use `AWS_S3_ENDPOINT=https://storage.yandexcloud.net` and `AWS_S3_PUBLIC_URL_BASE=https://storage.yandexcloud.net/<bucket>`.
 - APOC is **not** required
 
 ## License

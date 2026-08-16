@@ -8,6 +8,15 @@ export interface StorageConfig {
     secretKey: string;
     region: string;
     bucket: string;
+    /** S3 API endpoint (e.g. https://storage.yandexcloud.net). Empty = AWS default. */
+    endpoint?: string;
+    /**
+     * Public base URL for object links stored in Neo4j (no trailing slash).
+     * AWS example: https://my-bucket.s3.amazonaws.com
+     * Yandex example: https://storage.yandexcloud.net/my-bucket
+     */
+    publicUrlBase?: string;
+    forcePathStyle: boolean;
   };
   maxFileSizeMB: number;
   allowedMimeTypes: string;
@@ -31,11 +40,19 @@ export const storageConfig = registerAs("storage", (): StorageConfig => {
   if (config.type === "local") {
     config.localPath = process.env.STORAGE_LOCAL_PATH || "./uploads";
   } else {
+    const endpoint = (process.env.AWS_S3_ENDPOINT || "").trim();
+    const forcePathStyleEnv = process.env.AWS_S3_FORCE_PATH_STYLE;
     config.s3 = {
       accessKey: process.env.AWS_ACCESS_KEY_ID || "",
       secretKey: process.env.AWS_SECRET_ACCESS_KEY || "",
       region: process.env.AWS_REGION || "us-east-1",
       bucket: process.env.AWS_S3_BUCKET || "",
+      endpoint: endpoint || undefined,
+      publicUrlBase: (process.env.AWS_S3_PUBLIC_URL_BASE || "").trim() || undefined,
+      forcePathStyle:
+        forcePathStyleEnv !== undefined
+          ? forcePathStyleEnv === "true" || forcePathStyleEnv === "1"
+          : Boolean(endpoint),
     };
   }
 
