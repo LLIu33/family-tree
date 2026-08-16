@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
+  CARD_H,
   CARD_W,
   SPOUSE_GAP,
+  buildFamilyCombs,
   buildSpouseBlocks,
   layoutNodes,
   orderIdsWithSpouseBlocks,
@@ -119,5 +121,117 @@ describe('layoutNodes', () => {
     assert.ok(wife)
     assert.equal(husband.generation, wife.generation)
     assert.equal(Math.abs(husband.x - wife.x), CARD_W + SPOUSE_GAP)
+  })
+
+  it('keeps spouses on one generation when ancestor depths differ', () => {
+    const nodes: IndividualNode[] = [
+      { id: 'a1', firstName: 'A1' },
+      { id: 'husband', firstName: 'Igor', lastName: 'Grechko' },
+      { id: 'b0', firstName: 'B0' },
+      { id: 'b1', firstName: 'B1' },
+      { id: 'wife', firstName: 'Lubov', lastName: 'Grechko' },
+      { id: 'child', firstName: 'Child' },
+    ]
+    const relationships: TreeRelationship[] = [
+      {
+        source: 'a1',
+        target: 'husband',
+        type: 'PARENT_CHILD',
+        familyId: 'fa',
+      },
+      {
+        source: 'b0',
+        target: 'b1',
+        type: 'PARENT_CHILD',
+        familyId: 'fb0',
+      },
+      {
+        source: 'b1',
+        target: 'wife',
+        type: 'PARENT_CHILD',
+        familyId: 'fb1',
+      },
+      {
+        source: 'husband',
+        target: 'wife',
+        type: 'SPOUSE',
+        familyId: 'fam',
+      },
+      {
+        source: 'husband',
+        target: 'child',
+        type: 'PARENT_CHILD',
+        familyId: 'fam',
+      },
+      {
+        source: 'wife',
+        target: 'child',
+        type: 'PARENT_CHILD',
+        familyId: 'fam',
+      },
+    ]
+
+    const laidOut = layoutNodes(nodes, relationships)
+    const husband = laidOut.find((node) => node.id === 'husband')
+    const wife = laidOut.find((node) => node.id === 'wife')
+    const child = laidOut.find((node) => node.id === 'child')
+
+    assert.ok(husband)
+    assert.ok(wife)
+    assert.ok(child)
+    assert.equal(husband.generation, wife.generation)
+    assert.equal(Math.abs(husband.x - wife.x), CARD_W + SPOUSE_GAP)
+    assert.ok(child.generation > husband.generation)
+  })
+
+  it('keeps family comb when orphan spouse is pulled to partner generation', () => {
+    const nodes: IndividualNode[] = [
+      { id: 'gp', firstName: 'GP' },
+      { id: 'p', firstName: 'P' },
+      { id: 'husband', firstName: 'Georgiy', lastName: 'Tkachenko' },
+      { id: 'wife', firstName: 'Wife' },
+      { id: 'child', firstName: 'Child' },
+    ]
+    const relationships: TreeRelationship[] = [
+      {
+        source: 'gp',
+        target: 'p',
+        type: 'PARENT_CHILD',
+        familyId: 'f0',
+      },
+      {
+        source: 'p',
+        target: 'husband',
+        type: 'PARENT_CHILD',
+        familyId: 'f1',
+      },
+      {
+        source: 'husband',
+        target: 'wife',
+        type: 'SPOUSE',
+        familyId: 'fam',
+      },
+      {
+        source: 'wife',
+        target: 'child',
+        type: 'PARENT_CHILD',
+        familyId: 'fam',
+      },
+    ]
+
+    const laidOut = layoutNodes(nodes, relationships)
+    const pos = new Map(laidOut.map((node) => [node.id, node]))
+    const husband = pos.get('husband')
+    const wife = pos.get('wife')
+    const child = pos.get('child')
+    const combs = buildFamilyCombs(relationships, pos)
+
+    assert.ok(husband)
+    assert.ok(wife)
+    assert.ok(child)
+    assert.equal(husband.generation, wife.generation)
+    assert.ok(child.generation > wife.generation)
+    assert.ok(child.y > wife.y + CARD_H + 8)
+    assert.ok(combs.some((comb) => comb.familyId === 'fam'))
   })
 })

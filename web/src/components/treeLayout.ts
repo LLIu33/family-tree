@@ -218,9 +218,57 @@ function pushUnique(
 }
 
 /**
+ * Display generations: spouse pairs share a row; children stay strictly below
+ * every parent. Relaxes after the parent→child depth pass so uneven ancestry
+ * (or orphan in-laws) cannot split couples or bury children under parents.
+ */
+function alignDisplayGenerations(
+  nodeIds: Iterable<string>,
+  parentsOf: Map<string, string[]>,
+  spousesOf: Map<string, string[]>,
+  generation: Map<string, number>,
+): void {
+  const ids = [...nodeIds]
+  const maxPasses = Math.max(8, ids.length * 3)
+  for (let pass = 0; pass < maxPasses; pass++) {
+    let changed = false
+
+    for (const id of ids) {
+      for (const spouseId of spousesOf.get(id) ?? []) {
+        const ga = generation.get(id) ?? 0
+        const gb = generation.get(spouseId) ?? 0
+        const g = Math.max(ga, gb)
+        if (ga !== g) {
+          generation.set(id, g)
+          changed = true
+        }
+        if (gb !== g) {
+          generation.set(spouseId, g)
+          changed = true
+        }
+      }
+    }
+
+    for (const id of ids) {
+      const pars = parentsOf.get(id) ?? []
+      if (pars.length === 0) continue
+      const minGen =
+        Math.max(...pars.map((p) => generation.get(p) ?? 0)) + 1
+      const cur = generation.get(id) ?? 0
+      if (cur < minGen) {
+        generation.set(id, minGen)
+        changed = true
+      }
+    }
+
+    if (!changed) return
+  }
+}
+
+/**
  * Layered genealogy layout:
  * 1) generation from parent→child only
- * 2) orphan spouses adopt partner generation (display only)
+ * 2) align spouses onto one row; push descendants below parents
  * 3) barycenter ordering to keep parents near children
  * 4) spouses placed side-by-side; tighter gap between spouses
  */
@@ -262,16 +310,12 @@ export function layoutNodes(
   }
   for (const n of nodes) depthOf(n.id, new Set())
 
-  for (const [id, spouses] of spousesOf) {
-    if ((parentsOf.get(id) ?? []).length > 0) continue
-    let best: number | undefined
-    for (const s of spouses) {
-      const g = generation.get(s)
-      if (g == null) continue
-      best = best == null ? g : Math.min(best, g)
-    }
-    if (best != null) generation.set(id, best)
-  }
+  alignDisplayGenerations(
+    byId.keys(),
+    parentsOf,
+    spousesOf,
+    generation,
+  )
 
   const byGen = new Map<number, string[]>()
   for (const [id, g] of generation) {

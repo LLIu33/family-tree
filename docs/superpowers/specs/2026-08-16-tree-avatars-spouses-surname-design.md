@@ -43,10 +43,11 @@ Current behavior already:
 
 Required strengthening:
 
-1. After generation ordering, **force contiguous spouse blocks** in each generation (no non-spouse between members of the same married chain).
-2. During horizontal packing / child-anchored placement, treat a spouse block as a **rigid unit**: shift the whole block’s X, never open a gap that separates spouses to satisfy a child’s preferred X alone.
-3. Multiple spouses of one person form a single chain (A–B–C) with spouse gaps between consecutive partners; no holes.
-4. Visual edge/comb style unchanged; only coordinates change.
+1. After the parent→child depth pass, **align display generations**: every spouse component shares one row (`max` of members), then descendants are pushed so each child sits strictly below all parents (iterative relaxation). Without this, uneven ancestry puts couples on different rows and family combs disappear when a child ends up above a pulled-down parent.
+2. After generation ordering, **force contiguous spouse blocks** in each generation (no non-spouse between members of the same married chain).
+3. During horizontal packing / child-anchored placement, treat a spouse block as a **rigid unit**: shift the whole block’s X, never open a gap that separates spouses to satisfy a child’s preferred X alone.
+4. Multiple spouses of one person form a single chain (A–B–C) with spouse gaps between consecutive partners; no holes.
+5. Visual edge/comb style unchanged; only coordinates change.
 
 Success criterion: for typical nuclear families in one generation, husband and wife sit next to each other with ~`SPOUSE_GAP`; children hang from the family comb without permanently splitting the pair.
 
@@ -95,5 +96,5 @@ No NestJS/Neo4j changes.
 
 ## Open follow-ups (out of scope)
 
-- If spouses still split on production data → consider family-unit layout (Approach 2 from brainstorming).
+- Display generations now unify spouse components (max depth) and push children below all parents so uneven ancestry / orphan in-laws do not split couples or drop family combs. If spouses still split horizontally on production data after that → consider family-unit layout (Approach 2 from brainstorming).
 - Optional “hide non-matching” mode later.
