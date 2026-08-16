@@ -15,7 +15,7 @@ export class AuthController {
 
   @Post("register")
   @UseGuards(ThrottlerGuard)
-  @SkipThrottle({ login: true })
+  @SkipThrottle({ login: true, forgot: true, reset: true })
   @ApiOperation({ summary: "Register user and create a personal tree" })
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
@@ -23,7 +23,7 @@ export class AuthController {
 
   @Post("login")
   @UseGuards(ThrottlerGuard)
-  @SkipThrottle({ register: true })
+  @SkipThrottle({ register: true, forgot: true, reset: true })
   @ApiOperation({ summary: "Login" })
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);

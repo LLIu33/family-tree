@@ -4,6 +4,8 @@ export interface AuthThrottleConfig {
   ttlMs: number;
   loginLimit: number;
   registerLimit: number;
+  forgotLimit: number;
+  resetLimit: number;
 }
 
 export const authThrottleConfig = registerAs(
@@ -15,5 +17,7 @@ export const authThrottleConfig = registerAs(
       process.env.AUTH_THROTTLE_LIMIT_REGISTER || "3",
       10,
     ),
+    forgotLimit: parseInt(process.env.AUTH_THROTTLE_LIMIT_FORGOT || "3", 10),
+    resetLimit: parseInt(process.env.AUTH_THROTTLE_LIMIT_RESET || "5", 10),
   }),
 );

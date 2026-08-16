@@ -221,11 +221,65 @@ describe("AuthService", () => {
       role: TreeRole.VIEWER,
     });
   });
+
+  it("assertJwtPasswordFresh rejects when passwordChangedAt is newer than pwd claim", async () => {
+    neo4j.read.mockResolvedValue({
+      records: [record({ changedMs: 2_000 })],
+    });
+
+    await expect(
+      service.assertJwtPasswordFresh("user-1", 1_000),
+    ).rejects.toThrow(UnauthorizedException);
+  });
+
+  it("assertJwtPasswordFresh allows missing pwd when user has no passwordChangedAt", async () => {
+    neo4j.read.mockResolvedValue({
+      records: [record({ changedMs: null })],
+    });
+
+    await expect(
+      service.assertJwtPasswordFresh("user-1", undefined),
+    ).resolves.toBeUndefined();
+  });
+
+  it("login includes pwd when user has passwordChangedAt", async () => {
+    neo4j.read
+      .mockResolvedValueOnce({
+        records: [
+          record({
+            u: {
+              id: "user-1",
+              email: "ada@example.com",
+              passwordHash: "hashed-password",
+              name: "Ada",
+            },
+            t: { id: "tree-1", name: "Owned Tree" },
+          }),
+        ],
+      })
+      .mockResolvedValueOnce({
+        records: [record({ changedMs: 1_700_000_000_000 })],
+      });
+
+    await service.login({
+      email: "ada@example.com",
+      password: "secret123",
+    });
+
+    expect(jwtService.signAsync).toHaveBeenCalledWith({
+      sub: "user-1",
+      email: "ada@example.com",
+      treeId: "tree-1",
+      role: TreeRole.OWNER,
+      pwd: 1_700_000_000_000,
+    });
+  });
 });
 
 describe("JwtStrategy", () => {
   it("loads the profile for the tree carried in the token", async () => {
     const authService = {
+      assertJwtPasswordFresh: jest.fn().mockResolvedValue(undefined),
       getProfile: jest.fn().mockResolvedValue({
         userId: "user-1",
         email: "ada@example.com",
@@ -246,8 +300,13 @@ describe("JwtStrategy", () => {
       email: "ada@example.com",
       treeId: "tree-2",
       role: TreeRole.VIEWER,
+      pwd: 1_700_000_000_000,
     });
 
+    expect(authService.assertJwtPasswordFresh).toHaveBeenCalledWith(
+      "user-1",
+      1_700_000_000_000,
+    );
     expect(authService.getProfile).toHaveBeenCalledWith("user-1", "tree-2");
   });
 });

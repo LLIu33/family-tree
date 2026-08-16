@@ -15,6 +15,7 @@ import {
   swaggerConfig,
   jwtConfig,
   authThrottleConfig,
+  mailConfig,
 } from "./config/configuration";
 
 @Module({
@@ -28,6 +29,7 @@ import {
         swaggerConfig,
         jwtConfig,
         authThrottleConfig,
+        mailConfig,
       ],
     }),
     ThrottlerModule.forRootAsync({
@@ -38,6 +40,8 @@ import {
           ttlMs: 60_000,
           loginLimit: 5,
           registerLimit: 3,
+          forgotLimit: 3,
+          resetLimit: 5,
         };
         return [
           {
@@ -50,6 +54,8 @@ import {
             ttl: throttle.ttlMs,
             limit: throttle.registerLimit,
           },
+          { name: "forgot", ttl: throttle.ttlMs, limit: throttle.forgotLimit },
+          { name: "reset", ttl: throttle.ttlMs, limit: throttle.resetLimit },
         ];
       },
     }),

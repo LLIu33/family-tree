@@ -5,6 +5,7 @@ export interface JwtPayload {
   email: string;
   treeId: string;
   role: TreeRole;
+  pwd?: number;
 }
 
 export interface AuthUser {

@@ -7,6 +7,9 @@ import { AuthController } from "./auth.controller";
 import { JwtStrategy } from "./strategies/jwt.strategy";
 import { JwtConfig } from "../../config/jwt.config";
 import { TreesModule } from "../trees/trees.module";
+import { MAIL_SENDER } from "./mail/mail.constants";
+import { LogMailSender } from "./mail/log-mail.sender";
+import { PasswordResetService } from "./services/password-reset.service";
 
 @Module({
   imports: [
@@ -32,7 +35,12 @@ import { TreesModule } from "../trees/trees.module";
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
-  exports: [AuthService, JwtModule, PassportModule],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    PasswordResetService,
+    { provide: MAIL_SENDER, useClass: LogMailSender },
+  ],
+  exports: [AuthService, PasswordResetService, JwtModule, PassportModule],
 })
 export class AuthModule {}

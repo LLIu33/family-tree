@@ -114,6 +114,17 @@ export class AuthService {
     return { accessToken: await this.signToken(user), user };
   }
 
+  async assertJwtPasswordFresh(
+    userId: string,
+    pwdClaim: number | undefined,
+  ): Promise<void> {
+    const changedMs = await this.getPasswordChangedAtMs(userId);
+    if (changedMs == null) return;
+    if (pwdClaim == null || pwdClaim < changedMs) {
+      throw new UnauthorizedException("Invalid token");
+    }
+  }
+
   async getProfile(userId: string, treeId: string): Promise<AuthUser> {
     const role = await this.treeAccess.getEffectiveRole(userId, treeId);
     if (role) {
@@ -204,7 +215,38 @@ export class AuthService {
       treeId: user.treeId,
       role: user.role,
     };
+    const changedMs = await this.getPasswordChangedAtMs(user.userId);
+    if (changedMs != null) payload.pwd = changedMs;
     return this.jwtService.signAsync(payload);
+  }
+
+  private async getPasswordChangedAtMs(userId: string): Promise<number | null> {
+    const result = await this.neo4j.read(
+      `
+      MATCH (u:User {id: $userId})
+      RETURN CASE
+        WHEN u.passwordChangedAt IS NULL THEN null
+        ELSE datetime.epochMillis(u.passwordChangedAt)
+      END AS changedMs
+      `,
+      { userId },
+    );
+    if (result.records.length === 0) return null;
+    return this.toEpochMs(result.records[0].get("changedMs"));
+  }
+
+  private toEpochMs(value: unknown): number | null {
+    if (value == null) return null;
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (
+      typeof value === "object" &&
+      value !== null &&
+      "toNumber" in value &&
+      typeof (value as { toNumber: unknown }).toNumber === "function"
+    ) {
+      return (value as { toNumber: () => number }).toNumber();
+    }
+    return null;
   }
 
   private async findUserByEmail(email: string): Promise<UserNode | null> {

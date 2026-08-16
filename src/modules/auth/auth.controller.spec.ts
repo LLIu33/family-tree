@@ -24,6 +24,8 @@ describe("AuthController throttling", () => {
       ThrottlerModule.forRoot([
         { name: "login", ttl: 60_000, limit: 5 },
         { name: "register", ttl: 60_000, limit: 3 },
+        { name: "forgot", ttl: 60_000, limit: 3 },
+        { name: "reset", ttl: 60_000, limit: 5 },
       ]),
     ],
     controllers: [AuthController],
